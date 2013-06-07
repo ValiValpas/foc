@@ -19,23 +19,23 @@
  */
 .align(0x1000)
 _leon_traphandlers:
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  TRAP(sparc_window_overflow);
-  TRAP(sparc_window_underflow);
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
-  BAD_TRAP
+  BAD_TRAP                       // 0x00
+  BAD_TRAP                       // 0x01
+  BAD_TRAP                       // 0x02
+  BAD_TRAP                       // 0x03
+  BAD_TRAP                       // 0x04
+  TRAP(sparc_window_overflow);   // 0x05
+  TRAP(sparc_window_underflow);  // 0x06
+  BAD_TRAP                       // 0x07
+  BAD_TRAP                       // 0x08
+  TRAP(sparc_data_exception);    // 0x09
+  BAD_TRAP                       // 0x0a
+  BAD_TRAP                       // 0x0b
+  BAD_TRAP                       // 0x0c
+  BAD_TRAP                       // 0x0d
+  BAD_TRAP                       // 0x0e
+  BAD_TRAP                       // 0x0f
+  BAD_TRAP                       // 0x10
 
 _start:
 
@@ -161,6 +161,21 @@ sparc_window_underflow:
 
 1: ta 0
 
+.globl sparc_data_exception
+sparc_data_exception:
+
+  set 0x300, %l3  ! address of MMU fault status register
+  set 0x400, %l4  ! address of MMU fault address register
+  lda [%l4] 0x19, %o0 ! load fault address into 1st argument
+  lda [%l3] 0x19, %o1 ! load status register into 2nd argument
+  mov %i7, %o2        ! load faulting instruction into 3rd argument
+  mov %sp, %o3        ! load sp into 4th argument
+  
+  call pagefault_entry
+  nop
+  ! return to next PC
+  ! jmpl %l2, %g0  ! old nPC
+  ! rett %l2 + 4   ! old nPC + 4
 
 .previous
 .section .bss

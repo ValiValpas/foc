@@ -50,3 +50,12 @@ Psr::write(unsigned psr)
                "nop;nop;nop;"
 	       : : "r"(psr));
 }
+
+PUBLIC static inline
+void
+Psr::enable_traps()
+{
+  Mword psr = read();
+  psr |= 1 << Enable_trap;
+  write(psr);
+}

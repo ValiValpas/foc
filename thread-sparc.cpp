@@ -14,12 +14,12 @@ IMPLEMENTATION [sparc]:
 #include "trap_state.h"
 #include "types.h"
 
-enum {
-  FSR_STATUS_MASK = 0x0d,
-  FSR_TRANSL      = 0x05,
-  FSR_DOMAIN      = 0x09,
-  FSR_PERMISSION  = 0x0d,
-};
+//enum {
+//  FSR_STATUS_MASK = 0x0d,
+//  FSR_TRANSL      = 0x05,
+//  FSR_DOMAIN      = 0x09,
+//  FSR_PERMISSION  = 0x0d,
+//};
 
 DEFINE_PER_CPU Per_cpu<Thread::Dbg_stack> Thread::dbg_stack;
 
@@ -100,27 +100,34 @@ extern "C" {
 extern "C" {
 
   /**
-   * The low-level page fault handler called from entry.S.  We're invoked with
+   * The low-level page fault handler called from crt0.S.  We're invoked with
    * interrupts turned off.  Apart from turning on interrupts 
    * all casesi,  just forwards
    * the call to Thread::handle_page_fault().
    * @param pfa page-fault virtual address
-   * @param error_code CPU error code
+   * @param error_code MMU fault register
    * @return true if page fault could be resolved, false otherwise
    */
   Mword pagefault_entry(const Mword pfa, const Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
-    //printf("Page fault at %08lx (%s)\n", pfa, PF::is_read_error(error_code)?"ro":"rw" );
+    // re-enable traps
+    Psr::enable_traps();
+    printf("Page fault at %08lx (%s) from %08lx\n", pfa, PF::is_read_error(error_code)?"ro":"rw", pc);
+    printf("FT %lx, AT %lx\n",
+           (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
+           (error_code & Fsr::Access_type_mask) >> Fsr::Access_type);
     if(EXPECT_TRUE(PF::is_usermode_error(error_code)))
       {
-	if (current_thread()->vcpu_pagefault(pfa, error_code, pc))
-	  return 1;
+        if (current_thread()->vcpu_pagefault(pfa, error_code, pc))
+          return 1;
 
-	current_thread()->state_del(Thread_cancel);
-	Proc::sti();
+        current_thread()->state_del(Thread_cancel);
+        Proc::sti();
       }
 
+
+    // FIXME fix ret_frame (in crt0.S)
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
 
     return ret;
@@ -145,10 +152,11 @@ extern "C"
 {
   void timer_handler()
   {
-    Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
-    //disable power savings mode, when we come from privileged mode
-    if(EXPECT_FALSE(rf->user_mode()))
-      rf->srr1 = Proc::wake(rf->srr1);
+    // FIXME old ppc code
+//    Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
+//    //disable power savings mode, when we come from privileged mode
+//    if(EXPECT_FALSE(rf->user_mode()))
+//      rf->srr1 = Proc::wake(rf->srr1);
 
     Timer::update_system_clock(current_cpu());
     current_thread()->handle_timer_interrupt();

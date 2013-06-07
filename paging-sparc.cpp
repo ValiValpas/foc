@@ -6,6 +6,53 @@ INTERFACE[sparc]:
 class PF {};
 class Page {};
 
+class Fsr {
+public:
+  /// MMU fault status register bits, see sparc v8 manual p.256ff
+  enum Fsr_bits {
+    Ext_bus       = 10,
+    Level         =  8,
+    Access_type   =  5,
+    Fault_type    =  2,
+    Address_valid =  1,
+    Overwrite     =  0
+  };
+
+  /// MMU fault status register bit masks, see sparc v8 manual p.256ff
+  enum Fsr_masks {
+    Ext_bus_mask          = 0xFF << 10,
+    Level_mask            = 0x3  << 8,
+    Access_type_mask      = 0x7  << 5,
+    Fault_type_mask       = 0x7  << 2,
+    Supervisor_mask       = 0x20,
+    Access_store_mask     = 0x80
+  };
+
+  /// MMU fault types, see sparc v8 manual p.256ff
+  enum Fault_types {
+    None            = 0x0,
+    Invalid_addr    = 0x1,
+    Protection      = 0x2,
+    Privilege_viol  = 0x3,
+    Translation     = 0x4,
+    Access_bus      = 0x5,
+    Internal        = 0x6,
+    Reserved        = 0x7
+  };
+
+  /// MMU access types, see sparc v8 manual p.256ff
+  enum Access_types {
+    User_data_load   = 0x0,
+    Super_data_load  = 0x1,
+    User_inst_load   = 0x2,
+    Super_inst_load  = 0x3,
+    User_data_store  = 0x4,
+    Super_data_store = 0x5,
+    User_inst_store  = 0x6,
+    Super_inst_store = 0x7
+  };
+};
+
 //------------------------------------------------------------------------------
 INTERFACE[sparc]:
 
@@ -270,19 +317,23 @@ Paging::decanonize(Address addr)
 IMPLEMENT inline
 Mword PF::is_translation_error(Mword error)
 {
-  return !(error & 1 << 30) /* DSISR/SRR1 bit 1 */;
+  Mword fault_type = (error & Fsr::Fault_type_mask) >> Fsr::Fault_type;
+  return fault_type == Fsr::Invalid_addr;
 }
 
 IMPLEMENT inline NEEDS["psr.h"]
 Mword PF::is_usermode_error(Mword error)
 {
-  return 0 & error;//(error & Msr::Msr_pr);
+  bool is_supervisor = (error & Fsr::Supervisor_mask);
+  assert((Psr::read() >> Psr::Prev_superuser) & 0x1 == is_supervisor);
+  return !is_supervisor;
 }
 
 IMPLEMENT inline
 Mword PF::is_read_error(Mword error)
 {
-  return !(error & (1 << 25)) /* DSISR bit 6*/;
+  bool is_store = error & Fsr::Access_store_mask;
+  return !is_store;
 }
 
 IMPLEMENT inline

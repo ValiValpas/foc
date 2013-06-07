@@ -1,6 +1,7 @@
 INTERFACE[sparc]:
 
 #include "types.h"
+#include "warn.h"
 
 EXTENSION class Syscall_frame
 {
@@ -12,15 +13,16 @@ EXTENSION class Syscall_frame
 EXTENSION class Return_frame
 {
   public:
-    Mword xer;  //+32
-    Mword ctr;  //+28
-    Mword cr;   //+24
-    Mword srr1; //+20
-    Mword srr0; //+16
-    Mword ulr;  //+12
-    Mword usp;  //+8
-    Mword r11;  //+4 --two scratch registers for exception entry
-    Mword r12;  //0
+    // FIXME adapt to sparc
+//    Mword xer;  //+32
+//    Mword ctr;  //+28
+//    Mword cr;   //+24
+//    Mword srr1; //+20
+//    Mword srr0; //+16
+//    Mword ulr;  //+12
+//    Mword usp;  //+8
+//    Mword r11;  //+4 --two scratch registers for exception entry
+//    Mword r12;  //0
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -43,69 +45,81 @@ Syscall_frame::dump() const
           6, r[5], 7, r[6], 8, r[7], 9, r[8], 10, r[9]);
 }
 
-PRIVATE
-void
-Return_frame::srr1_bit_scan()
-{
-  printf("SRR1 bits:");
-  for(int i = 31; i >= 0; i--)
-    if(srr1 & (1 << i))
-     printf(" %d", 31-i);
-  printf("\n");
-}
-
-IMPLEMENT
-void
-Return_frame::dump()
-{
-  printf("SRR0 %08lx SRR1 %08lx SP %08lx\n"
-         "LR   %08lx CTR  %08lx CR %08lx XER %08lx\n",
-         srr0, srr1, usp, ulr, ctr, cr, xer);
-  srr1_bit_scan();
-}
-
-IMPLEMENT
-void
-Return_frame::dump_scratch()
-{
-  printf("\nR[%2d]: %08lx\nR[%2d]: %08lx\n", 11, r11, 12, r12);
-}
-
+//PRIVATE
+//void
+//Return_frame::srr1_bit_scan()
+//{
+//  printf("SRR1 bits:");
+//  for(int i = 31; i >= 0; i--)
+//    if(srr1 & (1 << i))
+//     printf(" %d", 31-i);
+//  printf("\n");
+//}
+//
+//IMPLEMENT
+//void
+//Return_frame::dump()
+//{
+//  printf("SRR0 %08lx SRR1 %08lx SP %08lx\n"
+//         "LR   %08lx CTR  %08lx CR %08lx XER %08lx\n",
+//         srr0, srr1, usp, ulr, ctr, cr, xer);
+//  srr1_bit_scan();
+//}
+//
+//IMPLEMENT
+//void
+//Return_frame::dump_scratch()
+//{
+//  printf("\nR[%2d]: %08lx\nR[%2d]: %08lx\n", 11, r11, 12, r12);
+//}
+//
 IMPLEMENT inline
 Mword
 Return_frame::sp() const
 {
-  return Return_frame::usp;
+  // FIXME imlement
+  NOT_IMPL_PANIC;
+  return Invalid_address;
+//  return Return_frame::usp;
 }
 
 IMPLEMENT inline
 void
 Return_frame::sp(Mword _sp)
 {
-  Return_frame::usp = _sp;
+  // FIXME imlement
+  (void)_sp;
+  NOT_IMPL_PANIC;
+//  Return_frame::usp = _sp;
 }
 
 IMPLEMENT inline
 Mword
 Return_frame::ip() const
 {
-  return Return_frame::srr0;
+  // FIXME imlement
+  NOT_IMPL_PANIC;
+  return Invalid_address;
+//  return Return_frame::srr0;
 }
 
 IMPLEMENT inline
 void
 Return_frame::ip(Mword _pc)
 {
-  Return_frame::srr0 = _pc;
+  // FIXME imlement
+  (void)_pc;
+  NOT_IMPL_PANIC;
+//  Return_frame::srr0 = _pc;
 }
 
-IMPLEMENT inline NEEDS ["psr.h"]
-bool
-Return_frame::user_mode()
-{
-  return 0;
-  /*return Msr::Msr_pr & srr1;*/
-}
+//IMPLEMENT inline NEEDS ["psr.h"]
+//bool
+//Return_frame::user_mode()
+//{
+//  return 0;
+//  /*return Msr::Msr_pr & srr1;*/
+//}
 
 //---------------------------------------------------------------------------
 //TODO cbass: set registers properly 
