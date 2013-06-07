@@ -3,6 +3,7 @@ INTERFACE [sparc]:
 
 #include "initcalls.h"
 #include "template_math.h"
+#include <cstdio>
 
 EXTENSION class Mem_layout
 {
@@ -53,42 +54,48 @@ IMPLEMENTATION [sparc]:
 
 #include "panic.h"
 #include "paging.h"
-#include <cstdio>
 
 Address Mem_layout::Tbuf_buffer_area = 0;
 Address Mem_layout::Tbuf_ubuffer_area = 0;
 
 PUBLIC static
 Address
-Mem_layout::phys_to_pmem (Address addr)
+Mem_layout::phys_to_pmem (Paddress addr)
 {
+  // TODO move kernel_srmmu_l1 to mem_layout (cp arm/mem_layout-noncont.cpp)
   extern Mword kernel_srmmu_l1[256];
   for (unsigned i = 0xF0; i < 0xFF; ++i)
     {
+      // find addr in PD
       if (kernel_srmmu_l1[i] != 0)
         {
-          Mword v_page = addr &  (0xFF << Pte_ptr::Pdir_shift);
-          Mword entry  = (kernel_srmmu_l1[i] & Pte_ptr::Ppn_mask) << Pte_ptr::Ppn_addr_shift;
-          if (entry == v_page)
-            return (i << Pte_ptr::Pdir_shift) | (addr & ~(0xFF << Pte_ptr::Pdir_shift));
+          Pte_ptr ppte(&kernel_srmmu_l1[i], 1);
+          unsigned page_order = ppte.page_order();
+          Dword entry  = ppte.page_addr();
+          Dword page   = cxx::mask_lsb(addr, page_order);
+          if (entry == page) {
+            // return virtual address
+            return (i << page_order) | cxx::get_lsb(addr, page_order);
+          }
         }
     }
-  return ~0L;
+  return Invalid_address;
 }
 
 PUBLIC static inline
-Address
+Paddress
 Mem_layout::pmem_to_phys (Address addr)
 {
-  (void)addr;
-  return ~0L;
+  // FIXME implement PT walk
+  printf("Mem_layout::pmem_to_phys(Address addr=%lx) is not implemented\n", addr);
+  return Invalid_paddress;
 }
 
 PUBLIC static inline
-Address
+Paddress
 Mem_layout::pmem_to_phys (const void *ptr)
 {
-  return reinterpret_cast<Address>(ptr);
+  return pmem_to_phys(reinterpret_cast<Address>(ptr));
 }
 
 PUBLIC static inline

@@ -241,6 +241,7 @@ Mem_space::v_insert(Phys_addr phys, Vaddr virt, Page_order size,
 /*
   printf("v_insert: phys %08lx virt %08lx (%s) %p\n", phys, virt, 
          page_attribs & Page_writable?"rw":"ro", this);*/
+  // TODO implement Mem_space::v_insert() for sparc
   return Insert_err_nomem;
 }
 
@@ -325,3 +326,13 @@ IMPLEMENT inline
 void
 Mem_space::v_set_access_flags(Vaddr, L4_fpage::Rights)
 {}
+
+PUBLIC static
+void
+Mem_space::init_page_sizes()
+{
+  add_page_size(Page_order(Config::PAGE_SHIFT));
+  add_page_size(Page_order(18)); // 256K
+  add_page_size(Page_order(24)); // 16MB
+  add_page_size(Page_order(32)); // 4G
+}

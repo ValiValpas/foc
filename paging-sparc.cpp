@@ -15,8 +15,27 @@ INTERFACE[sparc]:
 #include "kdb_ke.h"
 #include "mem_unit.h"
 
+//#define THIS_NEEDS_ADAPTION
+//#define THIS_NEED_ADAPTION
+
+//EXTENSION class Page                                                                                                                                             
+//{                                                                                                                                                                
+//public:                                                                                                                                                          
+//  enum Attribs_enum                                                                                                                                              
+//  {                                                                                                                                                              
+//    MAX_ATTRIBS   = 0x00000006,                                                                                                                                  
+//    Cache_mask    = 0x00000018, ///< Cache attrbute mask                                                                                                         
+//    CACHEABLE     = 0x00000080,                                                                                                                                  
+//    BUFFERED      = 0x00000010,                                                                                                                                  
+//    NONCACHEABLE  = 0x00000018,                                                                                                                                  
+//  };                                                                                                                                                             
+//};
+
 class Paging {};
 
+/**
+ * @remark: SRMMU uses 36-bit physical addresses
+ */
 class Pte_ptr
 {
 public:
@@ -31,29 +50,68 @@ public:
 
   bool is_leaf() const
   {
-    return false; // FIX
+    return *pte & ET_pte;
   }
 
-  Mword next_level() const
+  Dword next_level() const
   {
-    return cxx::mask_lsb(*pte, 10); // copy'n'paste, check and fix!
+    assert(*pte & ET_ptd);
+    return (*pte & Ptp_mask) << Ptp_addr_shift;
   };
 
-  void set_next_level(Mword phys)
+  /**
+   * Set next level page table
+   */
+  void set_next_level(Dword phys)
   {
-    write_now(pte, phys | 1); // copy'n'paste, check and fix!
+    Mword shifted = phys >> Ptp_addr_shift;
+    assert((shifted & ~Ptp_mask) == 0);
+    write_now(pte, shifted | ET_ptd);
+  }
+
+  /**
+   * Set next level page table
+   */
+  void set_next_level(Mword *ptr)
+  {
+    Dword phys = (Mword)ptr;
+    set_next_level(phys);
   }
 
   unsigned char page_order() const
   {
-    // Check and fix!
-    if (level == 0)
-      return 20;
-    return 12;
+    switch (level)
+    {
+      case 0:
+        return 32; // root level = 4GB
+      case 1:
+        return 24;
+      case 2:
+        return 18;
+      default:     // level >= 3
+        return 12;
+    }
   }
 
-  Mword page_addr() const
-  { return cxx::mask_lsb(*pte, page_order()); } // copy'n'paste, check and fix!
+  /**
+   * Get physical page address (36-bit)
+   */
+  Dword page_addr() const
+  {
+    assert(*pte & ET_pte);
+    Dword paddr = (*pte & Ppn_mask) << Ppn_addr_shift;
+    return cxx::mask_lsb(paddr, page_order());
+  }
+
+  /**
+   * Get page offset
+   */
+  Mword page_offset() const
+  {
+    assert(*pte & ET_pte);
+    Dword paddr = (*pte & Ppn_mask) << Ppn_addr_shift;
+    return cxx::get_lsb(paddr, page_order());
+  }
 
   enum
   {
@@ -62,32 +120,39 @@ public:
 
     Ptp_mask       = 0xfffffffc,  ///< PTD: page table pointer
     Ppn_mask       = 0xffffff00,  ///< PTE: physical page number
-    Ppn_addr_shift = 4,           ///< PTE/PTD: need to shift phys addr
+    Ptp_addr_shift = 4,           ///< PTD: need to shift phys addr
+    Ppn_addr_shift = 4,           ///< PTE: need to shift phys addr
     Cacheable      = 0x80,        ///< PTE: is cacheable
     Modified       = 0x40,        ///< PTE: modified
     Referenced     = 0x20,        ///< PTE: referenced
     Accperm_mask   = 0x1C,        ///< 3 bits for access permissions
     Accperm_shift  = 2,
+    Accperm_RO     = 0x0,         ///< read only (user/supervisor)
+    Accperm_RW     = 0x1,         ///< read write (user/supervisor)
+    Accperm_RX     = 0x2,         ///< read execute (user/supervisor)
+    Accperm_RWX    = 0x3,         ///< read write execute (user/supervisor)
+    Accperm_XO     = 0x4,         ///< execute only (user/supervisor)
+    Accperm_RO_RW  = 0x5,         ///< read only (user), read write (supervisor)
+    Accperm_NO_RX  = 0x6,         ///< no access (user), read execute (supervisor)
+    Accperm_NO_RWX = 0x7,         ///< no access (user), read write execute (supervisor)
     Et_mask        = 0x3,         ///< 2 bits to determine entry type
     Vfpa_mask      = 0xfffff000,  ///< Flush/Probe: virt. addr. mask
     Flushtype_mask = 0xf00,       ///< Flush/Probe: type
 
-    Pdir_mask        = 0xFF,
-    Pdir_shift       = 24,
-    Ptab_mask        = 0x3F,
-    Ptab_shift1      = 18,
-    Ptab_shift2      = 12,
-    Page_offset_mask = 0xFFF,
+//    Pdir_mask        = 0xFF,
+//    Pdir_shift       = 24,
+//    Ptab_mask        = 0x3F,
+//    Ptab_shift1      = 18,
+//    Ptab_shift2      = 12,
+//    Page_offset_mask = 0xFFF,
 
     Super_level    = 0,
-    Valid          = 0x3,
+    Valid          = 0x3,        ///< ET field mask
   };
 
   Mword *pte;
   unsigned char level;
 
-  //  Mword addr() const { return _raw & Ppn_mask;}
-    //bool is_super_page() const { return _raw & Pse_bit; }
 };
 
 #if 0
@@ -140,6 +205,51 @@ IMPLEMENTATION[sparc]:
 #include "lock_guard.h"
 #include "cpu_lock.h"
 #include "kip.h"
+
+PRIVATE inline
+Mword
+Pte_ptr::_attribs(Page::Attr attr) const
+{
+  static const unsigned short perms[] = {
+      Accperm_NO_RX  << Accperm_shift, // 0000: none, hmmm
+      Accperm_NO_RX  << Accperm_shift, // 000X: kernel rx
+      Accperm_NO_RWX << Accperm_shift, // 00W0: kernel rwx (no rw)
+      Accperm_NO_RWX << Accperm_shift, // 00WX: kernel rwx
+
+      Accperm_NO_RX  << Accperm_shift, // 0R00: kernel rx (no ro)
+      Accperm_NO_RX  << Accperm_shift, // 0R0X:
+      Accperm_NO_RWX << Accperm_shift, // 0RW0: kernel rwx (no rw)
+      Accperm_NO_RWX << Accperm_shift, // 0RWX:
+
+      Accperm_NO_RX  << Accperm_shift, // U000:
+      Accperm_XO     << Accperm_shift, // U00X: 
+      Accperm_RW     << Accperm_shift, // U0W0:
+      Accperm_RWX    << Accperm_shift, // U0WX:
+
+      Accperm_RO     << Accperm_shift, // UR00:
+      Accperm_RX     << Accperm_shift, // UR0X: 
+      Accperm_RW     << Accperm_shift, // URW0:
+      Accperm_RWX    << Accperm_shift  // URWX:
+  };
+
+  typedef Page::Type T;
+  Mword r = 0;
+  if (attr.type == T::Normal())   r |= Cacheable;
+  if (attr.type == T::Uncached()) r &= ~Cacheable;
+
+  return r | perms[cxx::int_value<L4_fpage::Rights>(attr.rights)];
+}
+
+
+PUBLIC inline NEEDS[Pte_ptr::_attribs]
+void
+Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
+{
+  Dword paddr = cxx::int_value<Phys_mem_addr>(addr);
+  assert(cxx::get_lsb(paddr, page_order()) == 0);
+  Mword p = ET_pte | _attribs(attr) | (Mword)(paddr >> Ptp_addr_shift);
+  write_now(pte, p);
+}
 
 
 /* this functions do nothing on SPARC architecture */
@@ -208,7 +318,8 @@ Pte_ptr::write_back(void *start, void *end)
 
 //---------------------------------------------------------------------------
 
-Pte_ptr context_table[16];
+Mword context_table[16];
+// FIXME move kernel_srmmu_l1 somewhere sensible (or alloc from kmem_alloc?)
 Mword kernel_srmmu_l1[256] __attribute__((aligned(0x400)));
 
 PUBLIC static
@@ -241,12 +352,9 @@ Paging::init()
   Mem_unit::context_table(Address(context_table));
   Mem_unit::context(0);
 
-  /* PD entry for root pdir */
-#ifdef THIS_NEED_ADAPTION
-  Pd_entry root;
-  root.set(Address(kernel_srmmu_l1), false, false);
-  context_table[0] = root;
-#endif
+  /* add context table entry for level 1 PD */
+  Pte_ptr root(&context_table[0], 0);
+  root.set_next_level(kernel_srmmu_l1);
 
   /*
    * Map as many 16 MB chunks (1st level page table entries)
@@ -255,18 +363,22 @@ Paging::init()
   unsigned superpage = 0xF0;
   while (memend - memstart + 1 >= (1 << 24))
     {
-#ifdef THIS_NEEDS_ADAPTION
-      Pt_entry pte;
-      pte.set(memstart, false, false, Pte_base::Cacheable | (0x3 << 2));
-      printf("pte %08x\n", pte.raw());
+      Page::Attr attr;
+      attr.type   = Page::Type::Normal();
+      attr.rights = Page::Rights::RWX();
 
       /* map phys mem starting from VA 0xF0000000 */
-      kernel_srmmu_l1[superpage] = pte.raw();
-      /* 1:1 mapping */
-      kernel_srmmu_l1[Pte_base::pdir(memstart)] = pte.raw();
-#endif
+      Pte_ptr ppte_v(&kernel_srmmu_l1[superpage], 1);
+      ppte_v.create_page(Phys_mem_addr(memstart), attr);
+      printf("Mapping 0x%lx to 0x%lx\n", memstart, superpage << ppte_v.page_order() | memstart);
 
-      memstart += (1 << 24);
+      /* 1:1 mapping */
+      unsigned idx = memstart >> ppte_v.page_order();
+      assert(idx < 0xF0);
+      Pte_ptr ppte_id(&kernel_srmmu_l1[idx], 1);
+      ppte_id.create_page(Phys_mem_addr(memstart), attr);
+
+      memstart += (1 << ppte_v.page_order());
       ++superpage;
     }
 

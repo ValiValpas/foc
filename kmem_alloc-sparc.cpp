@@ -31,11 +31,11 @@ Kmem_alloc::Kmem_alloc()
 }
 
 PUBLIC inline
-Address
+Paddress
 Kmem_alloc::to_phys(void *v) const
 {
-  // FIX
-  (void)v;
-  return ~0UL;
+  // FIXME
+  printf("Kmem_alloc::to_phys(0x%lx) not implemented\n", (Mword)v);
+  return Invalid_paddress;
 }
 
