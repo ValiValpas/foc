@@ -168,7 +168,7 @@ sparc_data_exception:
   set 0x400, %l4  ! address of MMU fault address register
   lda [%l4] 0x19, %o0 ! load fault address into 1st argument
   lda [%l3] 0x19, %o1 ! load status register into 2nd argument
-  mov %i7, %o2        ! load faulting instruction into 3rd argument
+  mov %l1, %o2        ! load faulting instruction into 3rd argument
   mov %sp, %o3        ! load sp into 4th argument
   
   call pagefault_entry
