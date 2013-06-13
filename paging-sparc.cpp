@@ -202,43 +202,6 @@ public:
 
 };
 
-#if 0
-class Pt_entry : public Pte_base
-{
-public:
-  Mword leaf() const { return true; }
-  void set(Address p, bool /*intermed*/, bool /*present*/, unsigned long attrs = 0)
-  {
-    _raw = ((p >> Ppn_addr_shift) & Ppn_mask) | attrs | ET_pte;
-  }
-};
-
-class Pd_entry : public Pte_base
-{
-public:
-  Mword leaf() const { return false; }
-  void set(Address p, bool /*intermed*/, bool /*present*/, unsigned long /*attrs*/ = 0)
-  {
-    _raw = ((p >> Ppn_addr_shift) & Ptp_mask) | ET_ptd;
-  }
-};
-#endif
-
-#if 0
-namespace Page
-{
-  typedef Unsigned32 Attribs;
-  enum Attribs_enum
-  {
-    Cache_mask   = 0x00000078,
-    CACHEABLE    = 0x00000000,
-    NONCACHEABLE = 0x00000040,
-    BUFFERED     = 0x00000080, //XXX not sure
-  };
-};
-#endif
-
-
 typedef Ptab::List< Ptab::Traits<Unsigned32, 22, 10, true>,
                     Ptab::Traits<Unsigned32, 12, 10, true> > Ptab_traits;
 
@@ -432,6 +395,14 @@ Paging::init()
       memstart += (1 << ppte_v.page_order());
       ++superpage;
     }
+
+  /* map io page */
+  // FIXME map io space dynamically
+  Page::Attr attr_io;
+  attr_io.type   = Page::Type::Uncached();
+  attr_io.rights = Page::Rights::RW();
+  Pte_ptr ppte_io(&kernel_srmmu_l1[0x80], 1);
+  ppte_io.create_page(Phys_mem_addr(0x80000000), attr_io);
 
   Mem_unit::mmu_enable();
 

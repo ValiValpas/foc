@@ -238,6 +238,7 @@ Mem_space::v_insert(Phys_addr phys, Vaddr virt, Page_order size,
   (void)phys; (void)virt; (void)page_attribs;
   assert (cxx::get_lsb(Phys_addr(phys), size) == 0);
   assert (cxx::get_lsb(Virt_addr(virt), size) == 0);
+  NOT_IMPL_PANIC;
 /*
   printf("v_insert: phys %08lx virt %08lx (%s) %p\n", phys, virt, 
          page_attribs & Page_writable?"rw":"ro", this);*/

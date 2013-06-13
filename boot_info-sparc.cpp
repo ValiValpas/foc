@@ -9,7 +9,6 @@ EXTENSION class Boot_info
     /**
      * Return memory-mapped base address of uart/pic
      */
-    static Address uart_base();
     static Address pic_base();
 };
 

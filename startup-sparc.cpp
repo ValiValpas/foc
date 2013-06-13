@@ -50,8 +50,8 @@ Startup::stage2()
 
   //idle task
   Kernel_task::init();
-#if 0
   Pic::init();
+#if 0
   Timer::init(Cpu_number::boot_cpu());
 #endif
   Utcb_init::init();
