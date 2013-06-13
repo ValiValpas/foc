@@ -171,11 +171,15 @@ sparc_data_exception:
   mov %l1, %o2        ! load faulting instruction into 3rd argument
   mov %sp, %o3        ! load sp into 4th argument
   
+  ! re-enable traps
+  mov %psr, %l0
+  or %l0, 0x20, %l0
+  mov %l0, %psr
   call pagefault_entry
   nop
   ! return to next PC
-  ! jmpl %l2, %g0  ! old nPC
-  ! rett %l2 + 4   ! old nPC + 4
+  jmpl %l2, %g0  ! old nPC
+  rett %l2 + 4   ! old nPC + 4
 
 .previous
 .section .bss
