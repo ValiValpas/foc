@@ -129,13 +129,12 @@ public:
   {
     switch (level)
     {
+      // context table would be level -1
       case 0:
-        return 32; // root level = 4GB
-      case 1:
         return 24;
-      case 2:
+      case 1:
         return 18;
-      default:     // level >= 3
+      default:     // level >= 2
         return 12;
     }
   }
@@ -202,8 +201,9 @@ public:
 
 };
 
-typedef Ptab::List< Ptab::Traits<Unsigned32, 22, 10, true>,
-                    Ptab::Traits<Unsigned32, 12, 10, true> > Ptab_traits;
+typedef Ptab::Tupel< Ptab::Traits<Unsigned32, 24, 8, true>,
+                     Ptab::Traits<Unsigned32, 18, 6, true>,
+                     Ptab::Traits<Unsigned32, 12, 6, true> >::List Ptab_traits;
 
 typedef Ptab::Shift<Ptab_traits, Virt_addr::Shift>::List Ptab_traits_vpn;
 typedef Ptab::Page_addr_wrap<Page_number, Virt_addr::Shift> Ptab_va_vpn;
@@ -250,6 +250,15 @@ Pte_ptr::_attribs(Page::Attr attr) const
   return r | perms[cxx::int_value<L4_fpage::Rights>(attr.rights)];
 }
 
+PUBLIC inline NEEDS[Pte_ptr::_attribs]
+void
+Pte_ptr::set_attribs(Page::Attr attr)
+{
+  Mword p    = access_once(pte);
+  Mword mask = ~(Accperm_mask << Accperm_shift);
+  p = (p & mask) | _attribs(attr);
+  write_now(pte, p);
+}
 
 PUBLIC inline NEEDS[Pte_ptr::_attribs]
 void
@@ -355,6 +364,8 @@ Paging::init()
         }
     }
 
+  assert(sizeof(kernel_srmmu_l1) <= sizeof(Pdir));
+
   /*
   printf("Context table: %p - %p\n", context_table,
          context_table + sizeof(context_table));
@@ -366,7 +377,8 @@ Paging::init()
   Mem_unit::context_table(Address(context_table));
   Mem_unit::context(0);
 
-  /* add context table entry for level 1 PD */
+  /* add context table entry for level 0 PD */
+  /* remark: we can use Pte_ptr on level 0 to setup the context table entry*/
   Pte_ptr root(&context_table[0], 0);
   root.set_next_level(kernel_srmmu_l1);
 
@@ -382,14 +394,14 @@ Paging::init()
       attr.rights = Page::Rights::RWX();
 
       /* map phys mem starting from VA 0xF0000000 */
-      Pte_ptr ppte_v(&kernel_srmmu_l1[superpage], 1);
+      Pte_ptr ppte_v(&kernel_srmmu_l1[superpage], 0);
       ppte_v.create_page(Phys_mem_addr(memstart), attr);
       printf("Mapping 0x%lx to 0x%lx\n", memstart, superpage << ppte_v.page_order() | memstart);
 
       /* 1:1 mapping */
       unsigned idx = memstart >> ppte_v.page_order();
       assert(idx < 0xF0);
-      Pte_ptr ppte_id(&kernel_srmmu_l1[idx], 1);
+      Pte_ptr ppte_id(&kernel_srmmu_l1[idx], 0);
       ppte_id.create_page(Phys_mem_addr(memstart), attr);
 
       memstart += (1 << ppte_v.page_order());
@@ -401,7 +413,7 @@ Paging::init()
   Page::Attr attr_io;
   attr_io.type   = Page::Type::Uncached();
   attr_io.rights = Page::Rights::RW();
-  Pte_ptr ppte_io(&kernel_srmmu_l1[0x80], 1);
+  Pte_ptr ppte_io(&kernel_srmmu_l1[0x80], 0);
   ppte_io.create_page(Phys_mem_addr(0x80000000), attr_io);
 
   Mem_unit::mmu_enable();

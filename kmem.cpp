@@ -28,8 +28,8 @@ IMPLEMENTATION [sparc]:
 #include "paging.h"
 #include "panic.h"
 
-char kernel_page_directory[sizeof(Pdir)];
-Pdir *Kmem::_kdir = (Pdir *)&kernel_page_directory;
+extern Mword kernel_srmmu_l1[256];
+Pdir *Kmem::_kdir = (Pdir *)&kernel_srmmu_l1;
 Mword *Kmem::_sp = 0;
 
 IMPLEMENT inline

@@ -76,7 +76,7 @@ Mem_layout::phys_to_pmem (Paddress addr)
       // find addr in PD
       if (kernel_srmmu_l1[i] != 0)
         {
-          Pte_ptr ppte(&kernel_srmmu_l1[i], 1);
+          Pte_ptr ppte(&kernel_srmmu_l1[i], 0);
           unsigned page_order = ppte.page_order();
           Dword entry  = ppte.page_addr();
           Dword page   = cxx::mask_lsb(addr, page_order);
