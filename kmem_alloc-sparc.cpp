@@ -1,6 +1,7 @@
 //----------------------------------------------------------------------------
 IMPLEMENTATION [sparc]:
 
+#include "mem_space.h"
 #include "mem_region.h"
 
 IMPLEMENT
@@ -30,12 +31,10 @@ Kmem_alloc::Kmem_alloc()
     }
 }
 
-PUBLIC inline
+PUBLIC inline NEEDS["mem_space.h"]
 Paddress
 Kmem_alloc::to_phys(void *v) const
 {
-  // FIXME
-  printf("Kmem_alloc::to_phys(0x%lx) not implemented\n", (Mword)v);
-  return Invalid_paddress;
+  return Mem_space::kernel_space()->virt_to_phys((Address)v);
 }
 

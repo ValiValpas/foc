@@ -141,7 +141,7 @@ PUBLIC static inline NEEDS["mem_unit.h"]
 void
 Mem_space::tlb_flush(bool = false)
 {
-  //Mem_unit::tlb_flush();
+  Mem_unit::tlb_flush();
 }
 
 PUBLIC static inline NEEDS["mem_unit.h"]
@@ -159,24 +159,20 @@ Mem_space::tlb_flush_spaces(bool all, Mem_space *s1, Mem_space *s2)
     }
 }
 
-/*
+
 PUBLIC inline
 bool 
-Mem_space::set_attributes(Address virt, unsigned page_attribs)
-{*/
-/*
-  Pdir::Iter i = _dir->walk(virt);
+Mem_space::set_attributes(Virt_addr virt, Attr page_attribs)
+{
+  auto i = _dir->walk(virt);
 
-  if (!i.e->valid() || i.shift() != Config::PAGE_SHIFT)
-    return 0;
+  if (!i.is_valid())
+    return false;
 
-  i.e->del_attr(Page::MAX_ATTRIBS);
-  i.e->add_attr(page_attribs);
+  i.set_attribs(page_attribs);
+  // TODO flush tlb?
   return true;
-*/
-/*  NOT_IMPL_PANIC;
-  return false;
-}*/
+}
 
 PROTECTED inline
 void

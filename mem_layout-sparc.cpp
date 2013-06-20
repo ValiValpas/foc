@@ -12,16 +12,16 @@ EXTENSION class Mem_layout
 public:
   enum Phys_layout : Address
   {
-    // remark: all above 0x40e0000 seems to be free
-    Utcb_ptr_page        = 0x40ff3000,
-    Syscalls_phys        = 0x40ff4000,
-    Tbuf_status_page     = 0x40ff5000,
-    Kernel_start         = 0x40ff6000,
   };
 
   enum Virt_layout : Address
   {
-    Syscalls             = 0xfffff000,   // FIXME check
+    // unmapped addresses
+    Utcb_ptr_page        = 0xffffc000,
+    Tbuf_status_page     = 0xffffd000,
+    Syscalls             = 0xffffe000,   // TODO change to 0xfffff000 once the bcc bug has been fixed
+    Tbuf_buffer_area     = 0xffd00000,
+    Tbuf_ubuffer_area    = Tbuf_buffer_area,
 
     User_max             = 0xf0000000,
 //    Tcbs                 = 0xc0000000, // TODO this can probably be discarded
@@ -30,18 +30,16 @@ public:
 //    Tcbs_end             = 0xe0000000, // TODO this can probably be discarded
 //    __free_1_start       = 0xec000000, // TODO this can probably be discarded
 //    __free_1_end         = 0xed000000, // TODO this can probably be discarded
-    Map_base             = 0xf0000000, ///< 4MB kernel memory
-    Map_end              = 0xf0400000,
-    Caps_start           = 0xf0400000, ///< 2MB caps
-    Caps_end             = 0xf0600000,
+
+    // addresses already mapped on startup
+    Map_base             = 0xf0000000, ///< 6MB kernel memory
+    Map_end              = 0xf0600000,
+    Caps_start           = 0xf0600000, ///< 2MB caps
+    Caps_end             = 0xf0800000,
     // free mem up to 0xf0a00000?
-    Tbuf_start           = 0xf0600000, // FIXME alloc tbuf memory instead (but from where?)
     Kernel_image         = 0xf0800000, ///< kernel image end
 //    Kernel_max           = 0x00000000, // TODO this can probably be discarded
   };
-
-  static Address Tbuf_buffer_area;
-  static Address Tbuf_ubuffer_area;
 };
 
 //---------------------------------------------------------------------------
@@ -61,9 +59,6 @@ IMPLEMENTATION [sparc]:
 
 #include "panic.h"
 #include "paging.h"
-
-Address Mem_layout::Tbuf_buffer_area = 0;
-Address Mem_layout::Tbuf_ubuffer_area = 0;
 
 PUBLIC static
 Address
@@ -131,53 +126,3 @@ Mem_layout::is_special_mapped(void const * /*a*/)
 {
   return true;
 }
-
-
-IMPLEMENTATION [sparc && debug]:
-
-#include "kip_init.h"
-
-
-PUBLIC static FIASCO_INIT
-void
-Mem_layout::init()
-{
-  Mword alloc_size = 0x200000;
-  unsigned long max = ~0UL;
-  for (;;)
-    {
-      Mem_region r;
-      r.start=Tbuf_start;
-      r.end=Kernel_image-1;
-      if (r.start > r.end)
-        panic("Corrupt memory descscriptor in KIP...");
-
-      if (r.start == r.end)
-        panic("not enough kernel memory");
-
-      max = r.start;
-      Mword size = r.end - r.start + 1;
-      if(alloc_size <= size)
-        {
-          r.start += (size - alloc_size);
-          Kip::k()->add_mem_region(Mem_desc(r.start, r.end,
-                                            Mem_desc::Reserved));
-
-          printf("TBuf  installed at: [%08lx; %08lx] - %lu KB\n", 
-                 r.start, r.end, alloc_size / 1024);
-
-          Tbuf_buffer_area = Tbuf_ubuffer_area = r.start;
-          break;
-        }
-    }
-
-    if(!Tbuf_buffer_area)
-      panic("Could not allocate trace buffer");
-}
-
-IMPLEMENTATION [sparc && !debug]:
-
-PUBLIC static FIASCO_INIT
-void
-Mem_layout::init()
-{}

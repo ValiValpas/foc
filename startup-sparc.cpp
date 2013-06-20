@@ -37,8 +37,6 @@ Startup::stage2()
   Paging::init();
   //init buddy allocator
   Kmem_alloc::init();
-  //init trace buffer
-  Mem_layout::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
   Per_cpu_data::init_ctors();
