@@ -49,6 +49,7 @@ Startup::stage2()
   //idle task
   Kernel_task::init();
   Pic::init();
+  // FIXME init timer
 #if 0
   Timer::init(Cpu_number::boot_cpu());
 #endif

@@ -17,27 +17,27 @@ IMPLEMENTATION [sparc]:
 #include "kernel_thread.h"
 #include "kernel_task.h"
 #include "kernel_console.h"
-//#include "reset.h" //TODO cbass: implement
+#include "reset.h"
 #include "space.h"
-//#include "terminate.h" //TODO cbass: implement
+#include "terminate.h"
 
 #include "processor.h"
 #include "boot_info.h"
-/*
+
 static int exit_question_active = 0;
 
-extern "C" void __attribute__ ((noreturn))
-_exit(int)
-{
-  if (exit_question_active)
-    platform_reset();
-
-  while (1)
-    {
-      Proc::halt();
-      Proc::pause();
-    }
-}
+//extern "C" void __attribute__ ((noreturn))
+//_exit(int)
+//{
+//  if (exit_question_active)
+//    platform_reset();
+//
+//  while (1)
+//    {
+//      Proc::halt();
+//      Proc::pause();
+//    }
+//}
 
 
 static void exit_question()
@@ -67,7 +67,7 @@ static void exit_question()
     }
 }
 
-*/
+
 #include "thread_state.h"
 int main()
 {
@@ -76,7 +76,7 @@ int main()
 
   // make some basic initializations, then create and run the kernel
   // thread
-  //set_exit_question(&exit_question);
+  set_exit_question(&exit_question);
 
   // disallow all interrupts before we selectively enable them
   //  pic_disable_all();
@@ -88,5 +88,6 @@ int main()
   //kdb_ke("init");
 
   // switch to stack of kernel thread and bootstrap the kernel
+  // FIXME do it
 }
 

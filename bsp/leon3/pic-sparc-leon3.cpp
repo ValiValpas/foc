@@ -110,11 +110,8 @@ PUBLIC
 void
 Chip::mask(Mword pin)
 {
-  // FIXME review cpu_lock status during bootstrapping
-//  assert(cpu_lock.test());
-  cpu_lock.lock();
+  assert(cpu_lock.test());
   Pic::disable_locked(pin);
-  cpu_lock.clear();
 }
 
 PUBLIC
@@ -161,14 +158,15 @@ static Static_object<Irq_mgr_single_chip<Chip> > mgr;
 unsigned Pic::_ncpu;
 Address Pic::_pic_base;
 
-//IMPLEMENT FIASCO_INIT
 IMPLEMENT FIASCO_INIT
 void
 Pic::init()
 {
-  // TODO init Irq_mgr::mgr
   _ncpu = (status() >> Ncpu_shift) & Ncpu_mask;
   _pic_base = Boot_info::pic_base();
+
+  // clear all
+  Io::write<Unsigned32>(0xffffffff, clear());
 
   Irq_mgr::mgr = mgr.construct();
 }
