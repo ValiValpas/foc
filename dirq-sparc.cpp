@@ -14,6 +14,7 @@ IMPLEMENTATION:
 extern "C"
 void irq_handler()
 {
+  // FIXME implement irq_handler()
   Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
 
   Mword irq;

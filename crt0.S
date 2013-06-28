@@ -36,6 +36,21 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x0e
   BAD_TRAP                       // 0x0f
   BAD_TRAP                       // 0x10
+  TRAP(irq_handler)              // 0x11 # interrupt level 1
+  TRAP(irq_handler)              // 0x12
+  TRAP(irq_handler)              // 0x13
+  TRAP(irq_handler)              // 0x14
+  TRAP(irq_handler)              // 0x15
+  TRAP(irq_handler)              // 0x16
+  TRAP(irq_handler)              // 0x17
+  TRAP(irq_handler)              // 0x18
+  TRAP(irq_handler)              // 0x19
+  TRAP(irq_handler)              // 0x1a
+  TRAP(irq_handler)              // 0x1b
+  TRAP(irq_handler)              // 0x1c
+  TRAP(irq_handler)              // 0x1d
+  TRAP(irq_handler)              // 0x1e
+  TRAP(irq_handler)              // 0x1f # interrupt level 15
 
 _start:
 
