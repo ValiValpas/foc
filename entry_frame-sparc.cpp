@@ -6,23 +6,32 @@ INTERFACE[sparc]:
 EXTENSION class Syscall_frame
 {
   public:
-    Mword r[30]; //{r0, r2, r3, ..., r10, r13 .., r31, ip
+    // FIXME adapt to sparc
+//    Mword r[30]; //{r0, r2, r3, ..., r10, r13 .., r31, ip
     void dump() const;
 };
 
 EXTENSION class Return_frame
 {
+  // as in kern/sparc/crt0.S
   public:
-    // FIXME adapt to sparc
-//    Mword xer;  //+32
-//    Mword ctr;  //+28
-//    Mword cr;   //+24
-//    Mword srr1; //+20
-//    Mword srr0; //+16
-//    Mword ulr;  //+12
-//    Mword usp;  //+8
-//    Mword r11;  //+4 --two scratch registers for exception entry
-//    Mword r12;  //0
+    Mword reserved[8]; //+64 to +92
+    Mword i7;   //+60
+    Mword i6;   //+56
+    Mword i5;   //+52
+    Mword i4;   //+48
+    Mword i3;   //+44
+    Mword i2;   //+40
+    Mword i1;   //+36
+    Mword i0;   //+32
+    Mword l7;   //+28
+    Mword l6;   //+24
+    Mword l5;   //+20
+    Mword l4;   //+16
+    Mword l3;   //+12
+    Mword l2;   //+8
+    Mword l1;   //+4
+    Mword l0;   //0
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -38,16 +47,17 @@ IMPLEMENT
 void
 Syscall_frame::dump() const
 {
-  printf("IP: %08lx\n", r[29]);
-  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
-          0, r[0], 2, r[1], 3, r[2], 4, r[3], 5, r[4]);
-  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
-          6, r[5], 7, r[6], 8, r[7], 9, r[8], 10, r[9]);
+  printf("Sparc syscall_frame is empty.\n");
+//  printf("IP: %08lx\n", r[29]);
+//  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
+//          0, r[0], 2, r[1], 3, r[2], 4, r[3], 5, r[4]);
+//  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
+//          6, r[5], 7, r[6], 8, r[7], 9, r[8], 10, r[9]);
 }
 
 //PRIVATE
 //void
-//Return_frame::srr1_bit_scan()
+//Return_frame::psr_bit_scan()
 //{
 //  printf("SRR1 bits:");
 //  for(int i = 31; i >= 0; i--)
@@ -55,16 +65,15 @@ Syscall_frame::dump() const
 //     printf(" %d", 31-i);
 //  printf("\n");
 //}
-//
-//IMPLEMENT
-//void
-//Return_frame::dump()
-//{
-//  printf("SRR0 %08lx SRR1 %08lx SP %08lx\n"
-//         "LR   %08lx CTR  %08lx CR %08lx XER %08lx\n",
-//         srr0, srr1, usp, ulr, ctr, cr, xer);
-//  srr1_bit_scan();
-//}
+
+IMPLEMENT
+void
+Return_frame::dump()
+{
+  printf("L0 %08lx L1 %08lx L2 %08lx\n",
+         l0, l1, l2);
+//  psr_bit_scan();
+}
 //
 //IMPLEMENT
 //void
@@ -129,36 +138,68 @@ Mword Syscall_frame::next_period() const
 
 IMPLEMENT inline
 void Syscall_frame::from(Mword id)
-{ r[5] = id; /*r6*/ }
+{
+  NOT_IMPL_PANIC;
+  (void)id;
+//  r[5] = id; /*r6*/
+}
 
 IMPLEMENT inline
 Mword Syscall_frame::from_spec() const
-{ return r[5]; /*r6*/ }
+{
+  NOT_IMPL_PANIC;
+//  return r[5]; /*r6*/
+}
 
 
 IMPLEMENT inline
 L4_obj_ref Syscall_frame::ref() const
-{ return L4_obj_ref::from_raw(r[3]); /*r4*/ }
+{
+  NOT_IMPL_PANIC;
+//  return L4_obj_ref::from_raw(r[3]); /*r4*/
+}
 
 IMPLEMENT inline
 void Syscall_frame::ref(L4_obj_ref const &ref)
-{ r[3] = ref.raw(); /*r4*/ }
+{
+  NOT_IMPL_PANIC;
+  (void)ref;
+//  r[3] = ref.raw(); /*r4*/
+}
 
 IMPLEMENT inline
 L4_timeout_pair Syscall_frame::timeout() const
-{ return L4_timeout_pair(r[4]); /*r5*/ }
+{ 
+  NOT_IMPL_PANIC;
+//  return L4_timeout_pair(r[4]); /*r5*/
+}
+
 
 IMPLEMENT inline 
 void Syscall_frame::timeout(L4_timeout_pair const &to)
-{ r[4] = to.raw(); /*r5*/ }
+{
+  NOT_IMPL_PANIC;
+  (void)to;
+//  r[4] = to.raw(); /*r5*/
+}
 
 IMPLEMENT inline Utcb *Syscall_frame::utcb() const
-{ return reinterpret_cast<Utcb*>(r[1]); /*r2*/}
+{
+  NOT_IMPL_PANIC;
+//  return reinterpret_cast<Utcb*>(r[1]); /*r2*/
+}
 
 IMPLEMENT inline L4_msg_tag Syscall_frame::tag() const
-{ return L4_msg_tag(r[2]); /*r3*/ }
+{
+  NOT_IMPL_PANIC;
+//  return L4_msg_tag(r[2]); /*r3*/
+}
 
 IMPLEMENT inline
 void Syscall_frame::tag(L4_msg_tag const &tag)
-{ r[2] = tag.raw(); /*r3*/ }
+{
+  NOT_IMPL_PANIC;
+  (void)tag;
+//  r[2] = tag.raw(); /*r3*/
+}
 

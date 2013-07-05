@@ -26,20 +26,20 @@ extern "C" void sys_kdb_ke()
 
   //arriving from outx function
   //unsigned *x = (unsigned *)t->regs()->ip();
-  if(t->regs()->r[29] == (Mword)-0x24 && t->regs()->r[2] & (1 << 31)) //ip && r3
+//  if(t->regs()->r[29] == (Mword)-0x24 && t->regs()->r[2] & (1 << 31)) //ip && r3
     {
       NOT_IMPL_PANIC;
-      unsigned func = (unsigned)t->regs()->r[1] & 0xffff; //r4
-      if(Thread::dbg_extension[func])
-        {
-          Thread::dbg_extension[func](t, t->regs());
-          return;
-        }
+//      unsigned func = (unsigned)t->regs()->r[1] & 0xffff; //r4
+//      if(Thread::dbg_extension[func])
+//        {
+//          Thread::dbg_extension[func](t, t->regs());
+//          return;
+//        }
     }
 
   char str[32] = "USER ENTRY";
   //arriving from enter_kdebug
-  if (t->regs()->r[29] == (Mword)-0x24 && t->regs()->r[2] & (1 << 30)) //ip && r3
+//  if (t->regs()->r[29] == (Mword)-0x24 && t->regs()->r[2] & (1 << 30)) //ip && r3
     {
       //t->mem_space()->copy_from_user(str, (char *)(x + 1), sizeof(str));
       str[sizeof(str)-1] = 0;

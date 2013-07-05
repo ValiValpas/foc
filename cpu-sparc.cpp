@@ -92,7 +92,7 @@ Cpu::set_vsid(Mword vsid)
 PUBLIC static inline
 Mword
 Cpu::stack_align(Mword stack)
-{ return stack & ~0xf; }
+{ return stack & ~0x7; }
 
 PUBLIC static inline
 bool

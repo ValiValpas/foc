@@ -1,17 +1,14 @@
 //-------------------------------------------------------------------------
 IMPLEMENTATION [sparc]:
 
-IMPLEMENT inline
+#include "mem_layout.h"
+
+IMPLEMENT inline NEEDS["mem_layout.h"]
 User<Utcb>::Ptr
 Utcb_support::current()
-{
-  Utcb *u = (Utcb*)0xDEADBEEF;
-  return User<Utcb>::Ptr(u);
-}
+{ return *reinterpret_cast<User<Utcb>::Ptr*>(Mem_layout::Utcb_ptr_page); }
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS["mem_layout.h"]
 void
 Utcb_support::current(User<Utcb>::Ptr const &utcb)
-{
-  (void)utcb;
-}
+{ *reinterpret_cast<User<Utcb>::Ptr*>(Mem_layout::Utcb_ptr_page) = utcb; }

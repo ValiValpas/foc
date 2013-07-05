@@ -3,8 +3,27 @@
 #define TRAP(H)  mov %psr, %l0; sethi %hi(H), %l4; jmp %l4+%lo(H); nop;
 #define TRAP_ENTRY(H) rd %psr, %l0; b H; rd %wim, %l3; nop;
 #define TRAP_ENTRY_INTERRUPT(int_level) \
-        mov int_level, %l7; rd %psr, %l0; b _prom_leonbare_irq_entry; rd %wim, %l3;
+        mov int_level, %l7; rd %psr, %l0; b irq_entry; rd %wim, %l3;
 #define BAD_TRAP ta 0; nop; nop; nop;
+
+#define STORE_FRAME() \
+  std %l0, [%sp + 0]; \
+  std %l2, [%sp + 8]; \
+  std %l4, [%sp + 16]; \
+  std %l6, [%sp + 24]; \
+  std %i0, [%sp + 32]; \
+  std %i2, [%sp + 40]; \
+  std %i4, [%sp + 48]; \
+  std %i6, [%sp + 56];
+#define RESTORE_FRAME() \
+  ldd   [%sp + 0], %l0; \
+  ldd   [%sp + 8], %l2; \
+  ldd   [%sp + 16], %l4; \
+  ldd   [%sp + 24], %l6; \
+  ldd   [%sp + 32], %i0; \
+  ldd   [%sp + 40], %i2; \
+  ldd   [%sp + 48], %i4; \
+  ldd   [%sp + 56], %i6; \
 
 .data
 .globl _leon_traphandlers
@@ -36,21 +55,21 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x0e
   BAD_TRAP                       // 0x0f
   BAD_TRAP                       // 0x10
-  TRAP(irq_handler)              // 0x11 # interrupt level 1
-  TRAP(irq_handler)              // 0x12
-  TRAP(irq_handler)              // 0x13
-  TRAP(irq_handler)              // 0x14
-  TRAP(irq_handler)              // 0x15
-  TRAP(irq_handler)              // 0x16
-  TRAP(irq_handler)              // 0x17
-  TRAP(irq_handler)              // 0x18
-  TRAP(irq_handler)              // 0x19
-  TRAP(irq_handler)              // 0x1a
-  TRAP(irq_handler)              // 0x1b
-  TRAP(irq_handler)              // 0x1c
-  TRAP(irq_handler)              // 0x1d
-  TRAP(irq_handler)              // 0x1e
-  TRAP(irq_handler)              // 0x1f # interrupt level 15
+  TRAP_ENTRY_INTERRUPT(0x11)     // 0x11 # interrupt level 1
+  TRAP_ENTRY_INTERRUPT(0x12)     // 0x12
+  TRAP_ENTRY_INTERRUPT(0x13)     // 0x13
+  TRAP_ENTRY_INTERRUPT(0x14)     // 0x14
+  TRAP_ENTRY_INTERRUPT(0x15)     // 0x15
+  TRAP_ENTRY_INTERRUPT(0x16)     // 0x16
+  TRAP_ENTRY_INTERRUPT(0x17)     // 0x17
+  TRAP_ENTRY_INTERRUPT(0x18)     // 0x18
+  TRAP_ENTRY_INTERRUPT(0x19)     // 0x19
+  TRAP_ENTRY_INTERRUPT(0x1a)     // 0x1a
+  TRAP_ENTRY_INTERRUPT(0x1b)     // 0x1b
+  TRAP_ENTRY_INTERRUPT(0x1c)     // 0x1c
+  TRAP_ENTRY_INTERRUPT(0x1d)     // 0x1d
+  TRAP_ENTRY_INTERRUPT(0x1e)     // 0x1e
+  TRAP_ENTRY_INTERRUPT(0x1f)     // 0x1f # interrupt level 15
 
 _start:
 
@@ -122,14 +141,7 @@ sparc_window_overflow:
      mov %g1, %wim
      nop; nop; nop
 
-     std %l0, [%sp + 0];
-     std %l2, [%sp + 8];
-     std %l4, [%sp + 16];
-     std %l6, [%sp + 24];
-     std %i0, [%sp + 32];
-     std %i2, [%sp + 40];
-     std %i4, [%sp + 48];
-     std %i6, [%sp + 56];
+     STORE_FRAME()
 
   restore
   mov %l7, %g1
@@ -160,14 +172,7 @@ sparc_window_underflow:
 
   restore             ! Two restores to get into the
   restore             ! window to restore
-  ldd   [%sp + 0], %l0;       ! Restore window from the stack
-  ldd   [%sp + 8], %l2;
-  ldd   [%sp + 16], %l4;
-  ldd   [%sp + 24], %l6;
-  ldd   [%sp + 32], %i0;
-  ldd   [%sp + 40], %i2;
-  ldd   [%sp + 48], %i4;
-  ldd   [%sp + 56], %i6;
+  RESTORE_FRAME()     ! Restore window from the stack
   save                ! Get back to the trap window.
   save
 
@@ -195,6 +200,18 @@ sparc_data_exception:
   ! return to next PC
   jmpl %l2, %g0  ! old nPC
   rett %l2 + 4   ! old nPC + 4
+
+.globl irq_entry
+irq_entry:
+  restore
+    STORE_FRAME() ! store return frame
+  save
+  ! re-enable traps
+  or %l0, 0x20, %l0
+  mov %l0, %psr
+  sethi %hi(irq_handler), %l4
+  jmp %l4+%lo(irq_handler)
+  nop
 
 .previous
 .section .bss
