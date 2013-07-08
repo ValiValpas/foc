@@ -129,7 +129,7 @@ sparc_window_overflow:
   mov %asr17, %l4
 
   /* calculate new WIM */
-  and %l4, 0x1f, %l4
+  and %l4, 0x1f, %l4 ! number of windows
   sll %l3, %l4, %l4
   or %l4, %g1, %g1
 
@@ -192,6 +192,7 @@ sparc_data_exception:
   mov %sp, %o3        ! load sp into 4th argument
   
   ! re-enable traps
+  ! TODO be careful with nested traps (need to allocate a stack frame)
   mov %psr, %l0
   or %l0, 0x20, %l0
   mov %l0, %psr
@@ -206,18 +207,47 @@ irq_entry:
 !  restore
 !    STORE_FRAME() ! store return frame
 !  save
+
+  ! save globals and %y on stack
+  ! TODO can we make this faster by using the local registers instead?
+  add %fp, -128, %sp   ! get some extra space on the stack
+                       ! (96 for prospective window overflow, 32 for globals)
+  STORE_FRAME()        ! TODO this should be done within on a window overflow (but it does not work)
+  rd  %y, %l6          ! read %y into scratch register
+  st  %l6, [%sp + 96]  ! store globals in that space
+  st  %g1, [%sp + 100]
+  std %g2, [%sp + 104]
+  std %g4, [%sp + 112]
+  std %g6, [%sp + 120]
+
   ! prepare arguments
-  ! TODO save globals and %y on stack
   mov %l0, %o0  ! psr
   mov %l1, %o1  ! PC
   mov %l2, %o2  ! nPC
   mov %l7, %o3  ! int lvl
+
   ! re-enable traps
-  or %l0, 0x20, %l0
-  mov %l0, %psr
+  or %l0, 0x20, %l5
+  mov %l5, %psr
+
+  ! do high-level stuff
   call irq_handler
   nop
-  ! TODO restore globals and %y from stack
+
+  ! TODO check window underflow
+
+  ! restore globals and %y from stack
+  ld  [%sp + 96],  %l6
+  ld  [%sp + 100], %g1
+  ldd [%sp + 104], %g2
+  ldd [%sp + 112], %g4
+  ldd [%sp + 120], %g6
+  wr  %l6, %y
+  RESTORE_FRAME()  ! see above
+  add %sp, 128, %sp
+
+  ! return
+  mov %l0, %psr ! restore psr
   jmp %l1
   rett %l2
 
