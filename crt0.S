@@ -203,15 +203,23 @@ sparc_data_exception:
 
 .globl irq_entry
 irq_entry:
-  restore
-    STORE_FRAME() ! store return frame
-  save
+!  restore
+!    STORE_FRAME() ! store return frame
+!  save
+  ! prepare arguments
+  ! TODO save globals and %y on stack
+  mov %l0, %o0  ! psr
+  mov %l1, %o1  ! PC
+  mov %l2, %o2  ! nPC
+  mov %l7, %o3  ! int lvl
   ! re-enable traps
   or %l0, 0x20, %l0
   mov %l0, %psr
-  sethi %hi(irq_handler), %l4
-  jmp %l4+%lo(irq_handler)
+  call irq_handler
   nop
+  ! TODO restore globals and %y from stack
+  jmp %l1
+  rett %l2
 
 .previous
 .section .bss

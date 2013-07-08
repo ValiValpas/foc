@@ -5,6 +5,8 @@ IMPLEMENTATION [sparc]:
 #include "processor.h"
 #include "pic.h"
 
+INTERFACE:
+#include "types.h"
 
 IMPLEMENTATION:
 
@@ -12,23 +14,23 @@ IMPLEMENTATION:
 #include "irq.h"
 
 extern "C"
-void irq_handler()
+void irq_handler(Mword psr, Mword pc, Mword npc, Mword level)
 {
   // FIXME implement irq_handler()
-  Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
+  // FIXME write Return_frame?
+//  Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
 
-  printf("irq_handler: l0=0x%08lx\n", rf->l0);
-  rf->dump();
-//  Mword irq;
-//
+  printf("psr 0x%08lx\n", psr);
+  printf("pc 0x%08lx\n", pc);
+  printf("npc 0x%08lx\n", npc);
+  printf("level 0x%08lx\n", level);
+
 //  if(EXPECT_TRUE(rf->user_mode()))
 //    rf->srr1 = Proc::wake(rf->srr1);
 //
 //  irq = Pic::pending();
 //  if(EXPECT_FALSE(irq == Pic::No_irq_pending))
 //    return;
-//
-//  Irq *i = nonull_static_cast<Irq*>(Pic::main->irq(irq));
-//  Irq::log_irq(i, irq);
-//  i->hit();
+
+  handle_multi_pending<Irq_chip_icu>(0);
 }

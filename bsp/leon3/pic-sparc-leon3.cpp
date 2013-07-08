@@ -18,7 +18,7 @@ private:
   ///+0x00: Interrupt Level Register
   static Address level()     { return _pic_base; }
   ///+0x04: Interrupt Pending Register
-  static Address pending()   { return _pic_base + 0x04; }
+  static Address stat()      { return _pic_base + 0x04; }
   ///+0x08: Interrupt Force Register (NCPU = 0)
   static Address force()     { return _pic_base + 0x08; }
   ///+0x0C: Interrupt Clear Register
@@ -148,6 +148,12 @@ Chip::set_cpu(Mword irq, Cpu_number cpu)
   (void)cpu;
 }
 
+PUBLIC
+Unsigned32
+Chip::pending()
+{
+  return Pic::pending();
+}
 
 //----------------------------------------------------------
 // Pic implementation 
@@ -169,6 +175,26 @@ Pic::init()
   Io::write<Unsigned32>(0xffffffff, clear());
 
   Irq_mgr::mgr = mgr.construct();
+}
+
+//----------------------------------------------------------
+// irq handler
+extern "C"
+void irq_handler(Mword psr, Mword pc, Mword npc, Mword level)
+{
+  // FIXME write Return_frame?
+//  Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
+
+  printf("psr 0x%08lx\n", psr);
+  printf("pc 0x%08lx\n", pc);
+  printf("npc 0x%08lx\n", npc);
+  printf("level 0x%08lx\n", level);
+
+//  if(EXPECT_TRUE(rf->user_mode()))
+//    rf->srr1 = Proc::wake(rf->srr1);
+
+  return; // FIXME
+  mgr->c.handle_multi_pending<Chip>(0);
 }
 
 //-------------------------------------------------------------------------------
@@ -211,38 +237,12 @@ unsigned
 Pic::nr_irqs()
 { return Irq_max; }
 
-//PRIVATE static inline
-//Unsigned32
-//Pic::pending_per(Unsigned32 state)
-//{
-//  Unsigned32 irq = state >> 24 & 0x1f; //5 bit
-//
-//  if(irq  == 0)
-//    panic("No support for bestcomm interrupt, yet\n");
-//
-//  return irq_num(IRQ_PER, irq);
-//}
-//
-//PRIVATE static inline
-//Unsigned32
-//Pic::pending_main(Unsigned32 state)
-//{
-//  Unsigned32 irq = state >> 16 & 0x1f;
-//
-//  //low periphal
-//  if(irq == 4)
-//    return pending_per(state);
-//
-//  return irq_num(IRQ_MAIN, irq);
-//}
-//
-//PUBLIC static inline NEEDS[Pic::pending_main, Pic::pending_per]
-//Unsigned32
-//Pic::pending()
-//{
-//  Unsigned32 irq = No_irq_pending;
-//  return irq;
-//}
+PUBLIC static inline
+Unsigned32
+Pic::pending()
+{
+  return (Io::read<Unsigned32>(Pic::pending()) >> Pic::Irq_shift) & Pic::Irq_mask;
+}
 
 /**
  * disable all interrupts

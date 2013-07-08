@@ -15,23 +15,23 @@ EXTENSION class Return_frame
 {
   // as in kern/sparc/crt0.S
   public:
-    Mword reserved[8]; //+64 to +92
-    Mword i7;   //+60
-    Mword i6;   //+56
-    Mword i5;   //+52
-    Mword i4;   //+48
-    Mword i3;   //+44
-    Mword i2;   //+40
-    Mword i1;   //+36
-    Mword i0;   //+32
-    Mword l7;   //+28
-    Mword l6;   //+24
-    Mword l5;   //+20
-    Mword l4;   //+16
-    Mword l3;   //+12
-    Mword l2;   //+8
-    Mword l1;   //+4
     Mword l0;   //0
+    Mword l1;   //+4
+    Mword l2;   //+8
+    Mword l3;   //+12
+    Mword l4;   //+16
+    Mword l5;   //+20
+    Mword l6;   //+24
+    Mword l7;   //+28
+    Mword i0;   //+32
+    Mword i1;   //+36
+    Mword i2;   //+40
+    Mword i3;   //+44
+    Mword i4;   //+48
+    Mword i5;   //+52
+    Mword i6;   //+56
+    Mword i7;   //+60
+    Mword reserved[8]; //+64 to +92
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -70,8 +70,14 @@ IMPLEMENT
 void
 Return_frame::dump()
 {
-  printf("L0 %08lx L1 %08lx L2 %08lx\n",
-         l0, l1, l2);
+  printf("L0: %08lx L1: %08lx L2: %08lx\n"
+         "L3: %08lx L4: %08lx L5: %08lx\n"
+         "L6: %08lx L7: %08lx\n"
+         "I0: %08lx I1: %08lx I2: %08lx\n"
+         "I3: %08lx I4: %08lx I5: %08lx\n"
+         "I6: %08lx I7: %08lx\n",
+         l0, l1, l2, l3, l4, l5, l6, l7,
+         i0, i1, i2, i3, i4, i5, i6, i7);
 //  psr_bit_scan();
 }
 //
