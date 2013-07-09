@@ -6,24 +6,50 @@
         mov int_level, %l7; rd %psr, %l0; b irq_entry; rd %wim, %l3;
 #define BAD_TRAP ta 0; nop; nop; nop;
 
-#define STORE_FRAME() \
-  std %l0, [%sp + 0]; \
-  std %l2, [%sp + 8]; \
-  std %l4, [%sp + 16]; \
-  std %l6, [%sp + 24]; \
-  std %i0, [%sp + 32]; \
-  std %i2, [%sp + 40]; \
-  std %i4, [%sp + 48]; \
-  std %i6, [%sp + 56];
-#define RESTORE_FRAME() \
-  ldd   [%sp + 0], %l0; \
-  ldd   [%sp + 8], %l2; \
-  ldd   [%sp + 16], %l4; \
-  ldd   [%sp + 24], %l6; \
-  ldd   [%sp + 32], %i0; \
-  ldd   [%sp + 40], %i2; \
-  ldd   [%sp + 48], %i4; \
-  ldd   [%sp + 56], %i6; \
+#define t_psr l0
+#define t_pc  l1
+#define t_npc l2
+#define t_wim l3
+
+! Additional stack space for non-flat traps
+! (96 for prospective window overflow, 32 for globals)
+! maybe we just need an additional 32 bytes
+#define STACK_ALLOC_SIZE 128
+
+#define STORE_GLOBALS(base_reg, scratch) \
+  rd  %y, %scratch;                \
+  st  %scratch, [%base_reg + 96];  \
+  st  %g1,      [%base_reg + 100]; \
+  std %g2,      [%base_reg + 104]; \
+  std %g4,      [%base_reg + 112]; \
+  std %g6,      [%base_reg + 120];
+  
+#define RESTORE_GLOBALS(base_reg, scratch) \
+  ld  [%base_reg + 96],  %scratch; \
+  ld  [%base_reg + 100], %g1; \
+  ldd [%base_reg + 104], %g2; \
+  ldd [%base_reg + 112], %g4; \
+  ldd [%base_reg + 120], %g6; \
+  wr  %scratch, %y;
+
+#define STORE_FRAME(base_reg) \
+  std %l0, [%base_reg + 0]; \
+  std %l2, [%base_reg + 8]; \
+  std %l4, [%base_reg + 16]; \
+  std %l6, [%base_reg + 24]; \
+  std %i0, [%base_reg + 32]; \
+  std %i2, [%base_reg + 40]; \
+  std %i4, [%base_reg + 48]; \
+  std %i6, [%base_reg + 56];
+#define RESTORE_FRAME(base_reg) \
+  ldd   [%base_reg + 0], %l0; \
+  ldd   [%base_reg + 8], %l2; \
+  ldd   [%base_reg + 16], %l4; \
+  ldd   [%base_reg + 24], %l6; \
+  ldd   [%base_reg + 32], %i0; \
+  ldd   [%base_reg + 40], %i2; \
+  ldd   [%base_reg + 48], %i4; \
+  ldd   [%base_reg + 56], %i6; \
 
 .data
 .globl _leon_traphandlers
@@ -107,9 +133,9 @@ _start:
 
 .globl sparc_window_overflow
 sparc_window_overflow:
-  mov %wim, %l3  /* need to determine new WIM */
+  mov %wim, %t_wim  /* need to determine new WIM */
   mov %g1, %l7
-  srl %l3, 1, %g1
+  srl %t_wim, 1, %g1
 
   /*
    * Find out if we are on LEON3 (PSR[24:27] == 3)
@@ -130,7 +156,7 @@ sparc_window_overflow:
 
   /* calculate new WIM */
   and %l4, 0x1f, %l4 ! number of windows
-  sll %l3, %l4, %l4
+  sll %t_wim, %l4, %l4
   or %l4, %g1, %g1
 
   /*
@@ -141,19 +167,19 @@ sparc_window_overflow:
      mov %g1, %wim
      nop; nop; nop
 
-     STORE_FRAME()
+     STORE_FRAME(sp)
 
   restore
   mov %l7, %g1
-  jmp %l1
-  rett %l2
+  jmp %t_pc
+  rett %t_npc
 
 1: ta 0
 
 .globl sparc_window_underflow
 sparc_window_underflow:
-  mov %wim, %l3  /* need to determine new WIM */
-  sll %l3, 1, %l4
+  mov %wim, %t_wim  /* need to determine new WIM */
+  sll %t_wim, 1, %l4
 
   /* Determine LEON version */
   mov %psr, %l5
@@ -165,19 +191,19 @@ sparc_window_underflow:
 
   mov %asr17, %l5
   and %l5, 0x1f, %l5
-  srl %l3, %l5, %l5
+  srl %t_wim, %l5, %l5
   or  %l5, %l4, %l5
   mov %l5, %wim
   nop; nop; nop
 
   restore             ! Two restores to get into the
   restore             ! window to restore
-  RESTORE_FRAME()     ! Restore window from the stack
+  RESTORE_FRAME(sp)   ! Restore window from the stack
   save                ! Get back to the trap window.
   save
 
-  jmp %l1
-  rett %l2
+  jmp %t_pc
+  rett %t_npc
 
 1: ta 0
 
@@ -188,19 +214,22 @@ sparc_data_exception:
   set 0x400, %l4  ! address of MMU fault address register
   lda [%l4] 0x19, %o0 ! load fault address into 1st argument
   lda [%l3] 0x19, %o1 ! load status register into 2nd argument
-  mov %l1, %o2        ! load faulting instruction into 3rd argument
-  mov %sp, %o3        ! load sp into 4th argument
+  mov %t_pc, %o2        ! load faulting instruction into 3rd argument
+  mov %sp,   %o3        ! load sp into 4th argument
   
   ! re-enable traps
   ! TODO be careful with nested traps (need to allocate a stack frame)
-  mov %psr, %l0
-  or %l0, 0x20, %l0
-  mov %l0, %psr
+  mov %psr, %t_psr
+  or %t_psr, 0x20, %t_psr ! set ET bit
+  wr %t_psr, %psr
   call pagefault_entry
   nop
+  ! restore psr (clear ET bit by xor-ing)
+  wr %t_psr, 0x20, %psr
+  nop; nop; nop;
   ! return to next PC
-  jmpl %l2, %g0  ! old nPC
-  rett %l2 + 4   ! old nPC + 4
+  jmpl %t_npc, %g0  ! old nPC
+  rett %t_npc + 4   ! old nPC + 4
 
 .globl irq_entry
 irq_entry:
@@ -210,46 +239,64 @@ irq_entry:
 
   ! save globals and %y on stack
   ! TODO can we make this faster by using the local registers instead?
-  add %fp, -128, %sp   ! get some extra space on the stack
-                       ! (96 for prospective window overflow, 32 for globals)
-  STORE_FRAME()        ! TODO this should be done within on a window overflow (but it does not work)
-  rd  %y, %l6          ! read %y into scratch register
-  st  %l6, [%sp + 96]  ! store globals in that space
-  st  %g1, [%sp + 100]
-  std %g2, [%sp + 104]
-  std %g4, [%sp + 112]
-  std %g6, [%sp + 120]
+  add %fp, -STACK_ALLOC_SIZE, %sp   ! get some extra space on the stack
+  STORE_FRAME(sp)      ! TODO this should be done within on a window overflow (but it does not work)
+  STORE_GLOBALS(sp, l6)
 
   ! prepare arguments
-  mov %l0, %o0  ! psr
-  mov %l1, %o1  ! PC
-  mov %l2, %o2  ! nPC
-  mov %l7, %o3  ! int lvl
+  mov %t_psr, %o0  ! psr
+  mov %t_pc,  %o1  ! PC
+  mov %t_npc, %o2  ! nPC
+  mov %l7, %o3     ! int lvl
+
+  ! TODO check whether we are in the trap window (see etrap_fast.S from gaisler)
 
   ! re-enable traps
-  or %l0, 0x20, %l5
-  mov %l5, %psr
+  or %t_psr, 0x20, %t_psr
+  mov %t_psr, %psr
 
   ! do high-level stuff
   call irq_handler
   nop
 
-  ! TODO check window underflow
+	/* Will the rett land us in the invalid window? */
+  mov	2, %g1
+  sll	%g1, %t_psr, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
 
+  srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
+  or	%g1, %g2, %g1
+  rd	%wim, %g2
+  andcc	%g2, %g1, %g0
+  be	1f		            ! Nope, just return from the trap
+   sll %g2, 0x1, %g1
+
+    /* We have to grab a window before returning. */
+    srl	%g2, 7, %g2
+    or	%g1, %g2, %g1
+    and	%g1, 0xff, %g1
+
+    wr	%g1, 0x0, %wim
+
+    /* Grrr, make sure we load from the right %sp... */
+    RESTORE_GLOBALS(sp, l6)
+	
+    restore
+      RESTORE_FRAME(sp)
+      b	2f
+    save
+
+1:
   ! restore globals and %y from stack
-  ld  [%sp + 96],  %l6
-  ld  [%sp + 100], %g1
-  ldd [%sp + 104], %g2
-  ldd [%sp + 112], %g4
-  ldd [%sp + 120], %g6
-  wr  %l6, %y
-  RESTORE_FRAME()  ! see above
-  add %sp, 128, %sp
+  RESTORE_GLOBALS(sp, l6)
+  RESTORE_FRAME(sp)  ! TODO see above
 
+2:
   ! return
-  mov %l0, %psr ! restore psr
-  jmp %l1
-  rett %l2
+  wr %t_psr, 0x20, %psr ! restore psr
+  nop; nop; nop;
+
+  jmp %t_pc
+  rett %t_npc
 
 .previous
 .section .bss
