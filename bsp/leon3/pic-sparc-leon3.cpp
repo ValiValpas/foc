@@ -193,7 +193,7 @@ void irq_handler(Mword psr, Mword pc, Mword npc, Mword level)
 //  if(EXPECT_TRUE(rf->user_mode()))
 //    rf->srr1 = Proc::wake(rf->srr1);
 
-  return; // FIXME
+  return; // FIXME do interrupt handling
   mgr->c.handle_multi_pending<Chip>(0);
 }
 
