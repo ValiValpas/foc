@@ -220,12 +220,12 @@ sparc_data_exception:
   ! re-enable traps
   ! TODO be careful with nested traps (need to allocate a stack frame)
   mov %psr, %t_psr
-  or %t_psr, 0x20, %t_psr ! set ET bit
-  wr %t_psr, %psr
+  or %t_psr, 0x20, %l6 ! set ET bit
+  wr %l6, %psr
   call pagefault_entry
   nop
   ! restore psr (clear ET bit by xor-ing)
-  wr %t_psr, 0x20, %psr
+  wr %t_psr, %psr
   nop; nop; nop;
   ! return to next PC
   jmpl %t_npc, %g0  ! old nPC
@@ -240,7 +240,6 @@ irq_entry:
   ! save globals and %y on stack
   ! TODO can we make this faster by using the local registers instead?
   add %fp, -STACK_ALLOC_SIZE, %sp   ! get some extra space on the stack
-  STORE_FRAME(sp)      ! TODO this should be done within on a window overflow (but it does not work)
   STORE_GLOBALS(sp, l6)
 
   ! prepare arguments
@@ -249,11 +248,30 @@ irq_entry:
   mov %t_npc, %o2  ! nPC
   mov %l7, %o3     ! int lvl
 
-  ! TODO check whether we are in the trap window (see etrap_fast.S from gaisler)
+  ! check whether we are in the trap window (see etrap_fast.S from gaisler)
+  mov 1, %g1
+  sll %g1, %t_psr, %g1  ! 1 << psr[4:0]
+  andcc %g1, %t_wim, %g0
+  beq 1f
+   nop
 
+    ! in trap window, clean up
+    ! compute new window
+    srl %t_wim, 0x1, %g2
+    sll %t_wim, 7, %t_wim
+    or %t_wim, %g2, %g2
+    and %g2, 0xff, %g2
+
+    ! get in window to be saved
+    save
+      wr %g2, %wim
+      STORE_FRAME(sp)
+    restore
+
+1:
   ! re-enable traps
-  or %t_psr, 0x20, %t_psr
-  mov %t_psr, %psr
+  or %t_psr, 0x20, %l6
+  mov %l6, %psr
 
   ! do high-level stuff
   call irq_handler
@@ -267,7 +285,7 @@ irq_entry:
   or	%g1, %g2, %g1
   rd	%wim, %g2
   andcc	%g2, %g1, %g0
-  be	1f		            ! Nope, just return from the trap
+  be	2f		            ! Nope, just return from the trap
    sll %g2, 0x1, %g1
 
     /* We have to grab a window before returning. */
@@ -282,17 +300,16 @@ irq_entry:
 	
     restore
       RESTORE_FRAME(sp)
-      b	2f
+      b	3f
     save
 
-1:
+2:
   ! restore globals and %y from stack
   RESTORE_GLOBALS(sp, l6)
-  RESTORE_FRAME(sp)  ! TODO see above
 
-2:
+3:
   ! return
-  wr %t_psr, 0x20, %psr ! restore psr
+  wr %t_psr, %psr ! restore psr
   nop; nop; nop;
 
   jmp %t_pc
