@@ -14,7 +14,7 @@ public:
 	  Icc_carry      = 20, // Integer cond. code: carry
 	  Enable_copr    = 13, // Enable Coprocessor
 	  Enable_fpu     = 12, // Enable FPU
-	  Interrupt_lvl  =  8, // Interrupt level (above which we accept interrupts)
+	  Interrupt_lvl  =  8, // Interrupt level shift
 	  Superuser      =  7, // Kernel mode
 	  Prev_superuser =  6, // Kernel mode state at most recent trap
 	  Enable_trap    =  5, // Traps on/off
