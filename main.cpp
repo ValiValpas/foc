@@ -88,6 +88,15 @@ int main()
   //kdb_ke("init");
 
   // switch to stack of kernel thread and bootstrap the kernel
-  // FIXME do it
+  asm volatile (
+     " mov %[stack], %%sp         \n" //new stack
+     " mov %[kernel],%%o0         \n" //"this" pointer
+		 " call call_bootstrap        \n"
+		 :
+		 : [stack]"r" (kernel->init_stack()),
+		   [kernel]"r" (kernel)
+		 );
+
+  return 0;
 }
 
