@@ -159,6 +159,32 @@ sparc_window_overflow:
   sll %t_wim, %l4, %l4
   or %l4, %g1, %g1
 
+  /* Some considerations about reliability:
+   * In case the stack pointer of the register window has
+   * been corrupted, we might get a data exception which
+   * consequently crashes the entire system (traps disabled),
+   * i.e. the CPU will go into error mode and halt execution.
+   * 
+   * In order to prevent this, we could either handle the 
+   * error mode somehow or do the following:
+   * 
+   *   save         ! go into window to be stored
+   *   mov %sp, %g2
+   *   restore      ! go into trap window
+   *   <enable traps>
+   *   restore      ! go into previous window
+   *   ld %g2, %g3  ! load from sp
+   *   st %g3, %g2  ! store sp 
+   *   save         ! go back into trap window
+   * 
+   * This way we ensure that a data exception can use the trap
+   * window.
+   * We also just need to enable traps in the underflow handler
+   * to make sure we can handle data exceptions in RESTORE_FRAME().
+   *
+   * TODO prevent data access exceptions in overflow/underflow handler
+   */
+
   /*
    * The trick here is to move to a valid stack frame
    * and store the register window contents there.

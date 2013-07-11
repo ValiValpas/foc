@@ -127,6 +127,8 @@ Mem_space::make_current()
   // switch context
   Mem_unit::context(new_context);
 
+  // no need to flush/invalidate the cache because it is context-aware
+
   /* We can do better by not flushing the context and 
    * applying an NRU replacement scheme.
    *

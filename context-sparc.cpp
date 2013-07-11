@@ -15,6 +15,7 @@ IMPLEMENTATION [sparc]:
 
 #include "kmem.h"
 #include "utcb_support.h"
+#include "warn.h"
 
 IMPLEMENT inline
 void
@@ -33,6 +34,10 @@ void
 Context::switch_cpu(Context *t)
 {
   (void)t;
+  NOT_IMPL_PANIC;
+  // TODO flush register windows
+  // TODO switch to new kernel stack
+  // TODO call switchin_context_label
 }
 
 /** Thread context switchin.  Called on every re-activation of a
@@ -45,4 +50,5 @@ IMPLEMENT
 void Context::switchin_context(Context *from)
 {
   (void)from;
+  NOT_IMPL_PANIC;
 }
