@@ -109,6 +109,7 @@ extern "C" {
   Mword pagefault_entry(const Mword pfa, const Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
+    (void)ret_frame;
     printf("Page fault at %08lx (%s) from %08lx\n", pfa, PF::is_read_error(error_code)?"ro":"rw", pc);
     printf("FT %lx, AT %lx\n",
            (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
@@ -122,9 +123,9 @@ extern "C" {
         Proc::sti();
       }
 
-
     // FIXME fix ret_frame (in crt0.S)
-    int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
+//    int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
+    int ret = false;
     if (!ret)
     {
       panic("Couldn't resolve page fault!\n");

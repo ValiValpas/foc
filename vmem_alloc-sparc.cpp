@@ -35,7 +35,7 @@ void *Vmem_alloc::page_alloc(void * address, Zero_fill zf, unsigned mode)
       Pdir::Depth, true, Kmem_alloc::q_allocator(Ram_quota::root));
 
   if (pte.is_valid()) {
-    printf("Inserted page 0x%08lx at level %d, valid=%d\n", address, pte.level, pte.is_valid());
+    printf("Inserted page 0x%08lx at level %d, valid=%d\n", (Mword)address, pte.level, pte.is_valid());
     printf("page at 0x%08lx already mapped\n", (Mword)address);
     assert(false);
   }
