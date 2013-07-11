@@ -93,7 +93,7 @@ Mem_space::initialize()
 
 PUBLIC
 Mem_space::Mem_space(Ram_quota *q, Dir_type* pdir)
-  : _quota(q), _dir(pdir)
+: _quota(q), _dir(pdir)
 {
   _kernel_space = this;
   _current.cpu(Cpu_number::boot_cpu()) = this;
@@ -103,7 +103,50 @@ IMPLEMENT inline
 void
 Mem_space::make_current()
 {
-  printf("%s FIXME\n", __func__);
+  extern Mword context_table[16];
+  _current.cpu(current_cpu()) = this;
+
+  // Currently, we simply alternate between context 0 and 1, invalidating
+  // the old context entirely.
+
+  // read current context number
+  Mword cur_context = Mem_unit::context();
+  Mword new_context = 1;
+  if (cur_context != 0) {
+    new_context = 0;
+  }
+
+  // update context table entry
+  Pte_ptr root(&context_table[new_context], 0);
+  root.set_next_level(virt_to_phys((Address)_dir)); // TODO pre-calc phys address (cp. arm)
+  assert(virt_to_phys((Address)_dir) != Invalid_address);
+  
+  // invalidate old context
+  Mem_unit::tlb_flush_context();
+
+  // switch context
+  Mem_unit::context(new_context);
+
+  /* We can do better by not flushing the context and 
+   * applying an NRU replacement scheme.
+   *
+   * What we need to store:
+   *  - A bitfield which stores the validity of every context number.
+   *  - A bitfield which stores the used status of every context number.
+   *  - The context number for (within) each context object.
+   *
+   * The algorithm:
+   *  - Check if the context number is still valid and points to the right pdir.
+   *    - YES: Switch to this number, mark as used.
+   *    - NO:  Still an invalid context number available?
+   *        - YES: Store entry in context table, switch context number, mark as used.
+   *        - NO:  Unused context numbers available?
+   *            - NO:  Clear "used" bitfield. Take any context number but the current.
+   *            Invalidate the selected context.
+   *            Store new entry in context table, switch context number, mark as used.
+   *
+   * TODO implement NRU replacement for sparc contexts
+   */
 }
 
 
@@ -118,8 +161,8 @@ Mem_space::sync_kernel()
 IMPLEMENT inline NEEDS ["kmem.h"]
 void Mem_space::switchin_context(Mem_space *from)
 {
-  (void)from;
-  printf("%s FIXME\n", __func__);
+  if (from != this)
+    make_current();
 }
 
 PUBLIC static inline
@@ -267,7 +310,7 @@ PUBLIC inline
 Address
 Mem_space::pmem_to_phys (Address virt) const
 {
-  return virt;
+  return virt_to_phys(virt);
 }
 
 
@@ -292,6 +335,8 @@ bool
 Mem_space::v_lookup(Vaddr virt, Phys_addr *phys, Page_order *order,
 		    Attr *page_attribs)
 {
+  // FIXME implement PT walk
+  NOT_IMPL_PANIC;
   (void)virt; (void)phys; (void)order; (void)page_attribs;
   return false;
 }
@@ -311,6 +356,7 @@ Mem_space::v_delete(Vaddr virt, Page_order size,
 		    L4_fpage::Rights page_attribs)
 {
   (void)virt; (void)size; (void)page_attribs;
+  NOT_IMPL_PANIC;
   return page_attribs;
 }
 

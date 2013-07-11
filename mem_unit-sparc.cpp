@@ -58,6 +58,16 @@ Mem_unit::tlb_flush()
 }
 
 /**
+ * Flush context
+ */
+PUBLIC static inline
+void
+Mem_unit::tlb_flush_context()
+{
+  Proc::write_alternative<Mmu::Flush>(0, Mmu::Flush_types::Context);
+}
+
+/**
  * Flush page at virtual address
  */
 PUBLIC static inline
@@ -92,6 +102,13 @@ void
 Mem_unit::context(Mword number)
 {
   Proc::write_alternative<Mmu::Regs>(Mmu::ContextNumber, number);
+}
+
+PUBLIC static inline
+Mword
+Mem_unit::context()
+{
+  return Proc::read_alternative<Mmu::Regs>(Mmu::ContextNumber);
 }
 
 PUBLIC static inline
