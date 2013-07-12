@@ -241,7 +241,7 @@ PUBLIC static inline
 Unsigned32
 Pic::pending()
 {
-  return (Io::read<Unsigned32>(Pic::pending()) >> Pic::Irq_shift) & Pic::Irq_mask;
+  return (Io::read<Unsigned32>(Pic::stat()) >> Pic::Irq_shift) & Pic::Irq_mask;
 }
 
 /**
