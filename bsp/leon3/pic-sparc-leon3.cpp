@@ -119,6 +119,8 @@ void
 Chip::ack(Mword pin)
 {
   assert(cpu_lock.test());
+  // we actually don't need to acknowledge irqs since the cpu (usually) takes care of this
+  // however: this might not be the case if we look up pending interrupts manually
   Pic::acknowledge_locked(pin);
 }
 
@@ -128,6 +130,8 @@ Chip::mask_and_ack(Mword pin)
 {
   assert(cpu_lock.test());
   Pic::disable_locked(pin);
+  // we actually don't need to acknowledge irqs since the cpu (usually) takes care of this
+  // however: this might not be the case if we look up pending interrupts manually
   Pic::acknowledge_locked(pin);
 }
 
@@ -152,6 +156,7 @@ PUBLIC
 Unsigned32
 Chip::pending()
 {
+  printf("Chip::pending()\n");
   return Pic::pending();
 }
 
@@ -182,19 +187,29 @@ Pic::init()
 extern "C"
 void irq_handler(Mword psr, Mword pc, Mword npc, Mword level)
 {
+  (void)psr;
+  (void)pc;
+  (void)npc;
   // FIXME write Return_frame?
 //  Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
-
-  printf("psr 0x%08lx\n", psr);
-  printf("pc 0x%08lx\n", pc);
-  printf("npc 0x%08lx\n", npc);
-  printf("level 0x%08lx\n", level);
 
 //  if(EXPECT_TRUE(rf->user_mode()))
 //    rf->srr1 = Proc::wake(rf->srr1);
 
-  return; // FIXME do interrupt handling
-  mgr->c.handle_multi_pending<Chip>(0);
+  // handle irq
+  mgr->c.handle_irq<Chip>(level, 0);
+
+  // TODO handle extended interrupts (mapped which level?)
+//  if (level == eirq)
+//  {
+//    // 1. get ext irq nr from acknowledged register
+//    // 2. handle ext irq
+//  }
+
+  // TODO should we manually look for more pending interrupts here?
+//  mgr->c.handle_multi_pending<Chip>(0);
+
+  printf("IRQ #%d handled\n", level);
 }
 
 //-------------------------------------------------------------------------------

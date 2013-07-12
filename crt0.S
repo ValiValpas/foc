@@ -81,21 +81,21 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x0e
   BAD_TRAP                       // 0x0f
   BAD_TRAP                       // 0x10
-  TRAP_ENTRY_INTERRUPT(0x11)     // 0x11 # interrupt level 1
-  TRAP_ENTRY_INTERRUPT(0x12)     // 0x12
-  TRAP_ENTRY_INTERRUPT(0x13)     // 0x13
-  TRAP_ENTRY_INTERRUPT(0x14)     // 0x14
-  TRAP_ENTRY_INTERRUPT(0x15)     // 0x15
-  TRAP_ENTRY_INTERRUPT(0x16)     // 0x16
-  TRAP_ENTRY_INTERRUPT(0x17)     // 0x17
-  TRAP_ENTRY_INTERRUPT(0x18)     // 0x18
-  TRAP_ENTRY_INTERRUPT(0x19)     // 0x19
-  TRAP_ENTRY_INTERRUPT(0x1a)     // 0x1a
-  TRAP_ENTRY_INTERRUPT(0x1b)     // 0x1b
-  TRAP_ENTRY_INTERRUPT(0x1c)     // 0x1c
-  TRAP_ENTRY_INTERRUPT(0x1d)     // 0x1d
-  TRAP_ENTRY_INTERRUPT(0x1e)     // 0x1e
-  TRAP_ENTRY_INTERRUPT(0x1f)     // 0x1f # interrupt level 15
+  TRAP_ENTRY_INTERRUPT(0x1)      // 0x11 # interrupt level 1
+  TRAP_ENTRY_INTERRUPT(0x2)      // 0x12
+  TRAP_ENTRY_INTERRUPT(0x3)      // 0x13
+  TRAP_ENTRY_INTERRUPT(0x4)      // 0x14
+  TRAP_ENTRY_INTERRUPT(0x5)      // 0x15
+  TRAP_ENTRY_INTERRUPT(0x6)      // 0x16
+  TRAP_ENTRY_INTERRUPT(0x7)      // 0x17
+  TRAP_ENTRY_INTERRUPT(0x8)      // 0x18
+  TRAP_ENTRY_INTERRUPT(0x9)      // 0x19
+  TRAP_ENTRY_INTERRUPT(0xa)      // 0x1a
+  TRAP_ENTRY_INTERRUPT(0xb)      // 0x1b
+  TRAP_ENTRY_INTERRUPT(0xc)      // 0x1c
+  TRAP_ENTRY_INTERRUPT(0xd)      // 0x1d
+  TRAP_ENTRY_INTERRUPT(0xe)      // 0x1e
+  TRAP_ENTRY_INTERRUPT(0xf)      // 0x1f # interrupt level 15
 
 _start:
 
@@ -246,7 +246,7 @@ sparc_data_exception:
   ! re-enable traps
   ! TODO be careful with nested traps (need to allocate a stack frame)
   mov %psr, %t_psr
-  or %t_psr, 0x20, %l6 ! set ET bit
+  or %t_psr, 0xF20, %l6 ! set ET bit and disable IRQs
   wr %l6, %psr
   call pagefault_entry
   nop
@@ -295,9 +295,9 @@ irq_entry:
     restore
 
 1:
-  ! re-enable traps
-  or %t_psr, 0x20, %l6
-  mov %l6, %psr
+  ! re-enable traps and disable irqs
+  or %t_psr, 0xF20, %l6
+  wr %l6, %psr
 
   ! do high-level stuff
   call irq_handler

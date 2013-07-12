@@ -42,6 +42,7 @@ static int exit_question_active = 0;
 
 static void exit_question()
 {
+  Proc::cli();
   exit_question_active = 1;
 
   while (1)
