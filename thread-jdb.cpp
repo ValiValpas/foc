@@ -67,6 +67,9 @@ Thread::call_nested_trap_handler(Trap_state * /*ts*/)
   if (!ntr)
     stack = dbg_stack.cpu(log_cpu).stack_top;
 
+  // TODO do some magic and call nested_trap_handler (cp ppc32)
+  NOT_IMPL_PANIC;
+
   return 0;
 }
 
