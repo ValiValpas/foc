@@ -92,19 +92,18 @@ IMPLEMENT inline
 Mword
 Return_frame::sp() const
 {
-  // FIXME imlement
+  // FIXME implement
   NOT_IMPL_PANIC;
-  return Invalid_address;
-//  return Return_frame::usp;
+//  return Return_frame::o6;
 }
 
 IMPLEMENT inline
 void
 Return_frame::sp(Mword _sp)
 {
-  // FIXME imlement
+  // FIXME implement
   (void)_sp;
-  NOT_IMPL_PANIC;
+  NOT_IMPL;
 //  Return_frame::usp = _sp;
 }
 
@@ -112,7 +111,7 @@ IMPLEMENT inline
 Mword
 Return_frame::ip() const
 {
-  // FIXME imlement
+  // FIXME implement
   NOT_IMPL_PANIC;
   return Invalid_address;
 //  return Return_frame::srr0;
@@ -124,7 +123,7 @@ Return_frame::ip(Mword _pc)
 {
   // FIXME imlement
   (void)_pc;
-  NOT_IMPL_PANIC;
+  NOT_IMPL;
 //  Return_frame::srr0 = _pc;
 }
 
