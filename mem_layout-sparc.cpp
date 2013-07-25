@@ -25,7 +25,7 @@ public:
 
     User_max             = 0xf0000000,
 //    Tcbs                 = 0xc0000000, // TODO this can probably be discarded
-    Utcb_addr            = User_max - 0x2000,  ///< UTCB map address, 8kB
+    Utcb_addr            = User_max - 0x4000,  ///< UTCB map address, 16kB
     utcb_ptr_align       = Tl_math::Ld<sizeof(void*)>::Res,
 //    Tcbs_end             = 0xe0000000, // TODO this can probably be discarded
 //    __free_1_start       = 0xec000000, // TODO this can probably be discarded
