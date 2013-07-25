@@ -255,7 +255,7 @@ void
 Pte_ptr::set_attribs(Page::Attr attr)
 {
   Mword p    = access_once(pte);
-  Mword mask = ~(Accperm_mask << Accperm_shift);
+  Mword mask = ~(Accperm_mask | Cacheable);
   p = (p & mask) | _attribs(attr);
   write_now(pte, p);
 }
@@ -270,6 +270,159 @@ Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
   write_now(pte, p);
 }
 
+PUBLIC inline NEEDS[Pte_ptr::_attribs]
+bool
+Pte_ptr::add_attribs(Page::Attr attr)
+{
+  typedef L4_fpage::Rights R;
+
+  auto p = access_once(pte);
+  auto o = (p & Accperm_mask) >> Accperm_shift;
+  R r(attr.rights);
+
+  // make sure we don't remove rights
+  switch (o)
+  {
+    case Accperm_RO:
+      if (r == R::RW())
+        o = Accperm_RO_RW;
+      else if ((r & R::W()) && (r & R::X()))
+        o = Accperm_RWX;
+      else if (r & R::W())
+        o = Accperm_RW;
+      else if (r & R::X())
+        o = Accperm_RX;
+      else
+        return false;
+      break;
+    case Accperm_RW:
+      if (r & R::X())
+        o = Accperm_RWX;
+      else
+        return false;
+      break;
+    case Accperm_RX:
+      if (r & R::W())
+        o = Accperm_RWX;
+      else
+        return false;
+      break;
+    case Accperm_RWX:
+      return false;
+    case Accperm_XO:
+      if (r & R::W())
+        o = Accperm_RWX;
+      else if (r & R::R())
+        o = Accperm_RX;
+      else
+        return false;
+      break;
+    case Accperm_RO_RW:
+      if (r & R::X())
+        o = Accperm_RWX;
+      else if ((r & R::U()) && (r & R::W()))
+        o = Accperm_RW;
+      else
+        return false;
+      break;
+    case Accperm_NO_RX:
+      if (r & R::U()) {
+        if (r & R::W())
+          o = Accperm_RWX;
+        else if (r & R::X())
+          o = Accperm_RX;
+        else
+          return false;
+      }
+      else if (r & R::W())
+        o = Accperm_NO_RWX;
+      else
+        return false;
+      break;
+    case Accperm_NO_RWX:
+      if (r & R::U()) {
+        if (r & R::RWX())
+          o = Accperm_RWX;
+        else
+          return false;
+      }
+      else
+        return false;
+      break;
+  }
+
+  p = (p & ~Accperm_mask) | o;
+  write_now(pte, p);
+  return true;
+}
+
+PUBLIC inline
+Page::Rights
+Pte_ptr::access_flags() const
+{ return Page::Rights(0); } // FIXME sparc: Pte_ptr::access_flags()
+
+PUBLIC inline
+void
+Pte_ptr::del_rights(L4_fpage::Rights r)
+{
+  typedef L4_fpage::Rights R;
+
+  auto p = access_once(pte);
+  auto o = (p & Accperm_mask) >> Accperm_shift;
+
+  switch (o)
+  {
+    case Accperm_RO: // can't remove anything
+      return;
+    case Accperm_RX:
+      if (r & R::R())
+        o = Accperm_XO;
+      else if (r & R::X())
+        o = Accperm_RO;
+      else
+        return;
+      break;
+    case Accperm_RW:
+      if (r & R::W())
+        o = Accperm_RO;
+      else
+        return;
+      break;
+    case Accperm_RWX:
+      if (r & R::W()) {
+        if (r & R::X())
+          o = Accperm_RO;
+        else if (r & R::R())
+          o = Accperm_XO;
+        else
+          o = Accperm_RX;
+      }
+      else if (r & R::X())
+        o = Accperm_RW;
+      else
+        return;
+      break;
+    case Accperm_XO: // can't remove anything
+      return;
+    case Accperm_RO_RW:
+      if (r & R::W())
+        o = Accperm_RO;
+      else
+        return;
+      break;
+    case Accperm_NO_RX: // can't remove anything
+      return;
+    case Accperm_NO_RWX:
+      if (r & R::W())
+        o = Accperm_NO_RX;
+      else
+        return;
+      break;
+  }
+
+  p = (p & ~Accperm_mask) | o;
+  write_now(pte, p);
+}
 
 /* this functions do nothing on SPARC architecture */
 PUBLIC static inline
