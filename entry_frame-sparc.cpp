@@ -32,6 +32,8 @@ EXTENSION class Return_frame
     Mword i6;   //+56
     Mword i7;   //+60
     Mword reserved[8]; //+64 to +92
+    Mword o6;
+    Mword pc;
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -70,14 +72,14 @@ IMPLEMENT
 void
 Return_frame::dump()
 {
-  printf("L0: %08lx L1: %08lx L2: %08lx\n"
-         "L3: %08lx L4: %08lx L5: %08lx\n"
-         "L6: %08lx L7: %08lx\n"
-         "I0: %08lx I1: %08lx I2: %08lx\n"
-         "I3: %08lx I4: %08lx I5: %08lx\n"
-         "I6: %08lx I7: %08lx\n",
-         l0, l1, l2, l3, l4, l5, l6, l7,
-         i0, i1, i2, i3, i4, i5, i6, i7);
+//  printf("L0: %08lx L1: %08lx L2: %08lx\n"
+//         "L3: %08lx L4: %08lx L5: %08lx\n"
+//         "L6: %08lx L7: %08lx\n"
+//         "I0: %08lx I1: %08lx I2: %08lx\n"
+//         "I3: %08lx I4: %08lx I5: %08lx\n"
+//         "I6: %08lx I7: %08lx\n",
+//         l0, l1, l2, l3, l4, l5, l6, l7,
+//         i0, i1, i2, i3, i4, i5, i6, i7);
 //  psr_bit_scan();
 }
 //
@@ -92,39 +94,28 @@ IMPLEMENT inline
 Mword
 Return_frame::sp() const
 {
-  // FIXME implement
-  NOT_IMPL_PANIC;
-//  return Return_frame::o6;
+  return Return_frame::o6;
 }
 
 IMPLEMENT inline
 void
 Return_frame::sp(Mword _sp)
 {
-  // FIXME implement
-  (void)_sp;
-  NOT_IMPL;
-//  Return_frame::usp = _sp;
+  Return_frame::o6 = _sp;
 }
 
 IMPLEMENT inline
 Mword
 Return_frame::ip() const
 {
-  // FIXME implement
-  NOT_IMPL_PANIC;
-  return Invalid_address;
-//  return Return_frame::srr0;
+  return Return_frame::pc;
 }
 
 IMPLEMENT inline
 void
 Return_frame::ip(Mword _pc)
 {
-  // FIXME imlement
-  (void)_pc;
-  NOT_IMPL;
-//  Return_frame::srr0 = _pc;
+  Return_frame::pc = _pc;
 }
 
 //IMPLEMENT inline NEEDS ["psr.h"]
