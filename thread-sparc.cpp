@@ -191,6 +191,8 @@ Thread::Thread()
   _recover_jmpbuf = 0;
   _timeout = 0;
 
+  // do this twice to preserve stack alignment
+  *reinterpret_cast<void(**)()> (--_kernel_sp) = user_invoke;
   *reinterpret_cast<void(**)()> (--_kernel_sp) = user_invoke;
 
   // clear out user regs that can be returned from the thread_ex_regs
