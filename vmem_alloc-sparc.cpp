@@ -17,10 +17,6 @@ void Vmem_alloc::init()
 IMPLEMENT
 void *Vmem_alloc::page_alloc(void * address, Zero_fill zf, unsigned mode)
 {
-  // TODO alloc page and map in Vmem_alloc::page_alloc()
-  // as for now, we don't need to map a page because we have a 1:1 mapping of physical to
-  // virtual adresses
-
   void *vpage = Kmem_alloc::allocator()->alloc(Config::PAGE_SHIFT);
 
   if (EXPECT_FALSE(!vpage))
