@@ -12,6 +12,7 @@ EXTENSION class Mem_layout
 public:
   enum Phys_layout : Address
   {
+    Ram_phys_base        = 0x40000000,   // TODO make this configurable (platform specific)
   };
 
   enum Virt_layout : Address
@@ -23,7 +24,7 @@ public:
     Tbuf_buffer_area     = 0xffd00000,
     Tbuf_ubuffer_area    = Tbuf_buffer_area,
 
-    User_max             = 0xf0000000,
+    User_max             = 0xe0000000,
 //    Tcbs                 = 0xc0000000, // TODO this can probably be discarded
     Utcb_addr            = User_max - 0x4000,  ///< UTCB map address, 16kB
     utcb_ptr_align       = Tl_math::Ld<sizeof(void*)>::Res,
@@ -49,7 +50,8 @@ EXTENSION class Mem_layout
 {
 public:
   enum {
-    Uart_base = 0x80000100,
+    Uart_phys_base = 0x80000100,
+    Uart_base      = 0xe0000100,
   };
 };
 

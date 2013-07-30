@@ -34,7 +34,6 @@ Startup::stage2()
 
   Kip_init::init();
   Mem_space::init_page_sizes();
-  Paging::init();
   //init buddy allocator
   Kmem_alloc::init();
 

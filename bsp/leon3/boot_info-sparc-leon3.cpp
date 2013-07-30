@@ -4,6 +4,8 @@ IMPLEMENTATION[sparc]:
 
 #include<sparc_types.h>
 #include "panic.h"
+#include "processor.h"
+#include "mem_unit.h"
 #include <cassert>
 
 /// interface for sparc leon3 plug and play section (see grlib.pdf)
@@ -84,7 +86,7 @@ class Pnp
 
     static inline bool check_ahb_device(Vendor_ids vid, Mword device, struct Ahb_info_record *ahb_info)
     {
-        Mword id_reg = ahb_info->id_reg;
+        Mword id_reg = Proc::read_alternative<Mmu::Bypass>((Mword)&ahb_info->id_reg);
 
         Vendor_ids cur_vid = (Vendor_ids)((id_reg >> Vendor_id_shift) & Vendor_id_mask);
         Mword      cur_dev = (id_reg >> Device_id_shift) & Device_id_mask;
@@ -96,7 +98,7 @@ class Pnp
 
     static inline bool check_apb_device(Vendor_ids vid, Mword device, struct Apb_info_record *apb_info)
     {
-        Mword id_reg = apb_info->id_reg;
+        Mword id_reg = Proc::read_alternative<Mmu::Bypass>((Mword)&apb_info->id_reg);
 
         Vendor_ids cur_vid = (Vendor_ids)((id_reg >> Vendor_id_shift) & Vendor_id_mask);
         Mword      cur_dev = (id_reg >> Device_id_shift) & Device_id_mask;
@@ -134,7 +136,7 @@ class Pnp
 
       if (ahb_info != 0UL) {
         // TODO select correct BAR register
-        Mword bar = ahb_info->bar0;
+        Mword bar = Proc::read_alternative<Mmu::Bypass>((Mword)&ahb_info->bar0);
         if (bar) {
           return ((bar >> Addr_shift) & Addr_mask) << Addr_ahb_shift;
         }
@@ -171,7 +173,7 @@ class Pnp
       struct Apb_info_record *apb_info = find_apb_device(vid, device);
 
       if (apb_info != 0UL) {
-        Mword bar = apb_info->bar;
+        Mword bar = Proc::read_alternative<Mmu::Bypass>((Mword)&apb_info->bar);
         if (bar) {
           return (((bar >> Addr_shift) & Addr_mask) << Addr_apb_shift) | _apb_base;
         }
@@ -218,6 +220,10 @@ void
 Boot_info::lookup_devices()
 {
   _pic_base = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::IRQMP);
+
+  // we map 0x8... to 0xE... in sparc/paging.cpp
+  assert((_pic_base & 0xF0000000) == 0x80000000);
+  _pic_base |= 0xE0000000;
 }
 
 IMPLEMENTATION [sparc && debug]:

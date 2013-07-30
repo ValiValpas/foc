@@ -149,16 +149,6 @@ public:
     return cxx::mask_lsb(paddr, page_order());
   }
 
-  /**
-   * Get page offset
-   */
-  Mword page_offset() const
-  {
-    assert(*pte & ET_pte);
-    Dword paddr = (*pte & Ppn_mask) << Ppn_addr_shift;
-    return cxx::get_lsb(paddr, page_order());
-  }
-
   enum
   {
     ET_ptd         = 1,           ///< PT Descriptor is PTD
@@ -498,78 +488,3 @@ Mword context_table[16];
 // FIXME move kernel_srmmu_l1 somewhere sensible (or alloc from kmem_alloc?)
 Mword kernel_srmmu_l1[256] __attribute__((aligned(0x400)));
 
-PUBLIC static
-void
-Paging::init()
-{
-  Mem_desc const *md = Kip::k()->mem_descs();
-  Address memstart, memend;
-  memstart = memend = 0;
-  /*printf("MD %p, num descs %d\n", md, Kip::k()->num_mem_descs());*/
-  for (unsigned i = 0; i < Kip::k()->num_mem_descs(); ++i)
-    {
-      printf("  [%lx - %lx type %x]\n", md[i].start(), md[i].end(), md[i].type());
-      if ((memstart == 0) && md[i].type() == 1)
-        {
-          memstart = md[i].start();
-          memend   = md[i].end();
-          break;
-        }
-    }
-
-  assert(sizeof(kernel_srmmu_l1) <= sizeof(Pdir));
-
-  /*
-  printf("Context table: %p - %p\n", context_table,
-         context_table + sizeof(context_table));
-  printf("Kernel PDir:   %p - %p\n", kernel_srmmu_l1,
-         kernel_srmmu_l1 + sizeof(kernel_srmmu_l1));
-  */
-  memset(context_table,   0, sizeof(context_table));
-  memset(kernel_srmmu_l1, 0, sizeof(kernel_srmmu_l1));
-  Mem_unit::context_table(Address(context_table));
-  Mem_unit::context(0);
-
-  /* add context table entry for level 0 PD */
-  /* remark: we can use Pte_ptr on level 0 to setup the context table entry*/
-  Pte_ptr root(&context_table[0], 0);
-  root.set_next_level(kernel_srmmu_l1);
-
-  /*
-   * Map as many 16 MB chunks (1st level page table entries)
-   * as possible.
-   */
-  unsigned superpage = 0xF0;
-  while (memend - memstart + 1 >= (1 << 24))
-    {
-      Page::Attr attr;
-      attr.type   = Page::Type::Normal();
-      attr.rights = Page::Rights::RWX();
-
-      /* map phys mem starting from VA 0xF0000000 */
-      Pte_ptr ppte_v(&kernel_srmmu_l1[superpage], 0);
-      ppte_v.create_page(Phys_mem_addr(memstart), attr);
-      printf("Mapping 0x%lx to 0x%lx\n", memstart, superpage << ppte_v.page_order() | memstart);
-
-      /* 1:1 mapping */
-      unsigned idx = memstart >> ppte_v.page_order();
-      assert(idx < 0xF0);
-      Pte_ptr ppte_id(&kernel_srmmu_l1[idx], 0);
-      ppte_id.create_page(Phys_mem_addr(memstart), attr);
-
-      memstart += (1 << ppte_v.page_order());
-      ++superpage;
-    }
-
-  /* map io page */
-  // FIXME map io space dynamically
-  Page::Attr attr_io;
-  attr_io.type   = Page::Type::Uncached();
-  attr_io.rights = Page::Rights::RW();
-  Pte_ptr ppte_io(&kernel_srmmu_l1[0x80], 0);
-  ppte_io.create_page(Phys_mem_addr(0x80000000), attr_io);
-
-  Mem_unit::mmu_enable();
-
-  printf("Paging enabled...\n");
-}

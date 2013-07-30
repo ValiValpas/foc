@@ -66,3 +66,14 @@ Mword Kmem::is_io_bitmap_page_fault( Mword /*pfa*/ )
 {
   return 0;
 }
+
+PUBLIC static inline
+Address Kmem::kernel_image_start()
+{ return virt_to_phys(&Mem_layout::image_start) & Config::PAGE_MASK; }
+  
+PUBLIC static inline
+Address Kmem::kcode_end()
+{
+    return (virt_to_phys(&Mem_layout::end) + Config::PAGE_SIZE)
+               & Config::PAGE_MASK;
+}

@@ -55,7 +55,8 @@
 .globl _leon_traphandlers
 
 .section .text.init, "ax"
-.global _start
+.global _start_kernel
+.global start
 .global __init_stack
 
 /*
@@ -97,7 +98,8 @@ _leon_traphandlers:
   TRAP_ENTRY_INTERRUPT(0xe)      // 0x1e
   TRAP_ENTRY_INTERRUPT(0xf)      // 0x1f # interrupt level 15
 
-_start:
+_start_kernel:
+start:
 
   rd %asr17, %g1
 
@@ -123,7 +125,7 @@ _start:
   sethi %hi(__init_stack), %fp
   or %fp, %lo(__init_stack), %fp
 
-  ba bootstrap_main
+  ba __main
   nop
 
   ta 0
@@ -347,5 +349,3 @@ irq_entry:
 .space 4096
   __init_stack:
 .previous
-
-
