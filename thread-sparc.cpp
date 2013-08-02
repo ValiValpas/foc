@@ -75,6 +75,9 @@ Thread::user_invoke()
          current_thread()->dbg_id(), r->ip(), r->sp(), vsid);
          printf("kernel_sp %p kip %p utcb %08lx\n", current_thread()->regs() + 1, kip, utcb);
 
+  // TODO sparc: implement user_invoke()
+
+  NOT_IMPL_PANIC;
   // never returns
 }
 
@@ -191,8 +194,10 @@ Thread::Thread()
   _recover_jmpbuf = 0;
   _timeout = 0;
 
-  // do this twice to preserve stack alignment
-  *reinterpret_cast<void(**)()> (--_kernel_sp) = user_invoke;
+  // preserve stack alignment
+  --_kernel_sp;
+  // set the initial restart address of the thread
+  // (stored at $sp-2words, cp. switch_cpu())
   *reinterpret_cast<void(**)()> (--_kernel_sp) = user_invoke;
 
   // clear out user regs that can be returned from the thread_ex_regs

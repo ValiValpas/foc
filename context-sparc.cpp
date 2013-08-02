@@ -43,25 +43,52 @@ void
 Context::switch_cpu(Context *t)
 {
   update_consumed_time();
+  
+  // flush register windows (saves current context(s) on the stack)
+  Proc::flush_regwins();
+
+  asm volatile
+  (
+    // get stack space for restart address (stack must be dword aligned)
+    "sub   %sp, 8, %sp              \n"
+    // save restart address on stack
+    "sethi %hi(ra), %g1             \n"
+    "or    %g1, %lo(ra), %g1        \n"
+    "st    %g1, [%sp]               \n"
+  );
 
   // save current stack pointer
   _kernel_sp = (Mword*)Proc::stack_pointer();
 
-  // flush register windows (saves current context(s) on the stack)
-  Proc::flush_regwins();
-
-  // switch to new stack
-  Proc::stack_pointer((Mword)t->_kernel_sp);
-
-  // load i7 from stack
-  // remark: we can use the Return_frame to access the registers on the stack
-  // because it is laid out accordingly
-  Proc::return_address(((Return_frame*)Proc::stack_pointer())->i7);
-  // load fp from stack
-  Proc::frame_pointer(((Return_frame*)Proc::stack_pointer())->i6);
+  // switch to new stack (and reserve an additional stack frame so that
+  // we preserve the return context)
+  Proc::stack_pointer((Mword)t->_kernel_sp - Config::Stack_frame_size);
 
   t->switchin_context(this);
 
+  // load restart address from stack (this may either be "ra:" or 
+  // user_invoke() if the thread didn't run before
+  asm volatile
+  (
+    "ld  [%%sp + %[frame_size]], %%g1                \n"
+    // jump to restart address
+    "jmp %%g1                                        \n"
+    // do something useful in the branch delay slot:
+    "add %%sp, %[offset], %%sp                       \n"
+    :
+    : [offset]     "n" (Config::Stack_frame_size + 8),
+      [frame_size] "n" (Config::Stack_frame_size)
+  );
+
+  asm volatile ("ra:");
+  // load fp from stack
+  // remark: we can use the Return_frame to access the registers on the stack
+  // because it is laid out accordingly
+  Proc::frame_pointer(((Return_frame*)Proc::stack_pointer())->i6);
+  // load return address from stack
+  Proc::return_address(((Return_frame*)Proc::stack_pointer())->i7);
+
+  printf("ra=0x%08lx, fp=0x%08lx\n", Proc::return_address(), Proc::frame_pointer());
   
   // at this point a ret and restore will cause an underflow trap
   // which, in turn, restores a register window from the new stack
@@ -81,12 +108,9 @@ void Context::switchin_context(Context *from)
 
   // FIXME the ia32 implementation does some sp manipulations here
 
-  printf("switchin, switchin (to=0x%08lx)\n", vcpu_aware_space());
-  printf("switchin, switchin (from=0x%08lx)\n", from->vcpu_aware_space());
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
 
-  printf("..., switchin\n");
   // stolen from arm implementation:
   Utcb_support::current(current()->utcb().usr());
 }
