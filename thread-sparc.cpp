@@ -68,17 +68,32 @@ Thread::user_invoke()
   Kip *kip = (EXPECT_FALSE(current_thread()->mem_space()->is_sigma0())) ?
              Kip::k() : 0;
 
-  /* DEBUGGING */
-  Mword vsid = 0xF000, utcb = 0xBAAA;
+  printf("\n[%lx]leaving kernel ip %lx sp %lx\n",
+         current_thread()->dbg_id(), r->ip(), r->sp());
+  printf("kernel_sp %p kip %p\n", current_thread()->regs(), kip);
 
-  printf("\n[%lx]leaving kernel ip %lx sp %lx vsid %lx\n",
-         current_thread()->dbg_id(), r->ip(), r->sp(), vsid);
-         printf("kernel_sp %p kip %p utcb %08lx\n", current_thread()->regs() + 1, kip, utcb);
 
-  // TODO sparc: implement user_invoke()
+  Proc::stack_pointer(r->sp());
 
-  NOT_IMPL_PANIC;
+  // restore psr
+  Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap);
+  asm volatile
+  (
+    "mov %[psr], %%psr\n"  // 3 slots until psr modification is carried out
+    "mov %[kip], %%o0 \n"
+    "jmp %[ret]       \n"
+    "nop              \n"
+    :
+    : [ret] "r" (r->ip()),
+      [psr] "r" (psr),
+      [kip] "r" (kip)
+    :
+  );
+
+  // TODO jump to return_from_exception (restores context including globals)
+
   // never returns
+  panic("Hit unreachable instruction in user_invoke()\n");
 }
 
 IMPLEMENT inline NEEDS["space.h", <cstdio>, "types.h" ,"config.h"]
@@ -205,6 +220,7 @@ Thread::Thread()
   Entry_frame *r = regs();
   r->sp(0);
   r->ip(0);
+  r->psr = 0;
 
   state_add_dirty(Thread_dead, false);
   // ok, we're ready to go!

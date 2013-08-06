@@ -25,6 +25,8 @@ public:
 	  Version_mask = 0xF,
 	  Irq_lvl_mask = 0xF,
 	  Cwp_mask     = 0x1F,
+    Icc_mask     = 0xF,
+    Usr_ret_mask = (1 << Superuser) | (Icc_mask << Icc_carry),
   };
 };
 
