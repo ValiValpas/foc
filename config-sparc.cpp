@@ -14,7 +14,7 @@ public:
     PAGE_SIZE  = 1 << PAGE_SHIFT,
     PAGE_MASK  = ~(PAGE_SIZE - 1),
 
-    SUPERPAGE_SHIFT = 22,
+    SUPERPAGE_SHIFT = 24,
     SUPERPAGE_SIZE  = 1 << SUPERPAGE_SHIFT,
     SUPERPAGE_MASK  = ~(SUPERPAGE_SIZE -1),
     hlt_works_ok = 1,
