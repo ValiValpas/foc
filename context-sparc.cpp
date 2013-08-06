@@ -24,7 +24,7 @@ Context::spill_user_state()
   Entry_frame *ef = regs();
   assert_kdb (current() == this);
   ef->sp(Proc::stack_pointer());
-  ef->i7 = Proc::return_address();
+  ef->ura = Proc::return_address();
 }
 
 IMPLEMENT inline
@@ -33,7 +33,7 @@ Context::fill_user_state()
 {
   Entry_frame *ef = regs();
   Proc::stack_pointer(ef->sp());
-  Proc::return_address(ef->i7);
+  Proc::return_address(ef->ura);
 }
 
 PROTECTED inline void Context::arch_setup_utcb_ptr() {}
@@ -82,8 +82,6 @@ Context::switch_cpu(Context *t)
 
   asm volatile ("ra:");
   // load fp from stack
-  // remark: we can use the Return_frame to access the registers on the stack
-  // because it is laid out accordingly
   Proc::frame_pointer(((Return_frame*)Proc::stack_pointer())->i6);
   // load return address from stack
   Proc::return_address(((Return_frame*)Proc::stack_pointer())->i7);

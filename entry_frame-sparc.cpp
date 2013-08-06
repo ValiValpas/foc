@@ -7,7 +7,7 @@ EXTENSION class Syscall_frame
 {
   public:
     // FIXME adapt to sparc
-//    Mword r[30]; //{r0, r2, r3, ..., r10, r13 .., r31, ip
+//    Mword r[30];
     void dump() const;
 };
 
@@ -32,8 +32,12 @@ EXTENSION class Return_frame
     Mword i6;   //+56
     Mword i7;   //+60
     Mword reserved[8]; //+64 to +92
-    Mword o6;
+    // end of stack frame
+    Mword usp;
+    // FIXME some confusion about user return address and the purpose of spill/fill_user_state
+    Mword ura; // user return address (i7)
     Mword pc;
+    Mword psr;
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -94,14 +98,14 @@ IMPLEMENT inline
 Mword
 Return_frame::sp() const
 {
-  return Return_frame::o6;
+  return Return_frame::usp;
 }
 
 IMPLEMENT inline
 void
 Return_frame::sp(Mword _sp)
 {
-  Return_frame::o6 = _sp;
+  Return_frame::usp = _sp;
 }
 
 IMPLEMENT inline
