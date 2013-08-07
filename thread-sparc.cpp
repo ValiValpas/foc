@@ -76,7 +76,7 @@ Thread::user_invoke()
   Proc::stack_pointer(r->sp());
 
   // restore psr
-  Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap);
+  Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap) | (Psr::read() & ~Psr::Usr_ret_mask);
   asm volatile
   (
     "mov %[psr], %%psr\n"  // 3 slots until psr modification is carried out
