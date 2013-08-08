@@ -17,6 +17,8 @@ IMPLEMENTATION [sparc]:
 #include "utcb_support.h"
 #include "warn.h"
 
+extern Mword *ksp;
+
 IMPLEMENT inline
 void
 Context::spill_user_state()
@@ -111,4 +113,6 @@ void Context::switchin_context(Context *from)
 
   // stolen from arm implementation:
   Utcb_support::current(current()->utcb().usr());
+  // update kernel entry stack pointer
+  ksp = (Mword*)current()->regs();
 }

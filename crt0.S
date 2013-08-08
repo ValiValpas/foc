@@ -51,8 +51,89 @@
   ldd   [%base_reg + 48], %i4; \
   ldd   [%base_reg + 56], %i6; \
 
+#define STORE_RETURN_FRAME(base_reg) \
+  st %sp,   [%base_reg + 96]; \
+  st %t_pc, [%base_reg + 104]; \
+  st %t_psr,[%base_reg + 108]; \
+
+.macro exception_entry scratch
+  ! if user mode exception: switch to kernel
+  btst 0x40, %t_psr
+  bne 1f                          ! skip if PS bit is set
+   mov %fp, %\scratch 
+
+    sethi %hi(ksp), %\scratch
+    ld [%\scratch + %lo(ksp)], %\scratch
+    STORE_RETURN_FRAME(\scratch)
+
+1:
+  add %\scratch, -STACK_ALLOC_SIZE, %sp ! alloc space on kernel stack and set sp
+
+  ! save globals and %y on kernel stack
+  STORE_GLOBALS(sp, \scratch)
+
+  ! check whether we are in the trap window (see etrap_fast.S from gaisler)
+  mov 1, %g1
+  sll %g1, %t_psr, %g1  ! 1 << psr[4:0]
+  andcc %g1, %t_wim, %g0
+  beq 2f
+   nop
+
+    ! in trap window, clean up
+    ! compute new window
+    srl %t_wim, 0x1, %g2
+    sll %t_wim, 7, %t_wim
+    or %t_wim, %g2, %g2
+    and %g2, 0xff, %g2
+
+    ! get in window to be saved
+    save
+      wr %g2, %wim
+      STORE_FRAME(sp)
+    restore
+
+2:
+
+.endm
+
+.macro exception_exit scratch
+	/* Will the rett land us in the invalid window? */
+  mov	2, %g1
+  sll	%g1, %t_psr, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
+
+  srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
+  or	%g1, %g2, %g1
+  rd	%wim, %g2
+  andcc	%g2, %g1, %g0
+  be	1f		            ! Nope, just return from the trap
+   sll %g2, 0x1, %g1
+
+    /* We have to grab a window before returning. */
+    srl	%g2, 7, %g2
+    or	%g1, %g2, %g1
+    and	%g1, 0xff, %g1
+
+    wr	%g1, 0x0, %wim
+
+    /* Grrr, make sure we load from the right %sp... */
+    RESTORE_GLOBALS(sp, \scratch)
+	
+    restore
+      RESTORE_FRAME(sp)
+      b	2f
+    save
+
+1:
+  ! restore globals and %y from stack
+  RESTORE_GLOBALS(sp, l6)
+2:
+.endm
+
 .data
 .globl _leon_traphandlers
+.globl ksp
+ksp:
+.long
 
 .section .text.init, "ax"
 .global _start_kernel
@@ -66,7 +147,7 @@
 .align(0x1000)
 _leon_traphandlers:
   BAD_TRAP                       // 0x00
-  BAD_TRAP                       // 0x01
+  TRAP(sparc_data_exception);    // 0x01
   BAD_TRAP                       // 0x02
   BAD_TRAP                       // 0x03
   BAD_TRAP                       // 0x04
@@ -461,38 +542,38 @@ sparc_window_underflow:
 
 .globl sparc_data_exception
 sparc_data_exception:
+  exception_entry l6
 
   set 0x300, %l3  ! address of MMU fault status register
   set 0x400, %l4  ! address of MMU fault address register
   lda [%l4] 0x19, %o0 ! load fault address into 1st argument
   lda [%l3] 0x19, %o1 ! load status register into 2nd argument
   mov %t_pc, %o2        ! load faulting instruction into 3rd argument
-  mov %sp,   %o3        ! load sp into 4th argument
-  
-  ! re-enable traps
-  ! TODO be careful with nested traps (need to allocate a stack frame)
-  mov %psr, %t_psr
-  or %t_psr, 0xF20, %l6 ! set ET bit and disable IRQs
+  sethi %hi(ksp), %l6
+  ld  [%l6 + %lo(ksp)], %o3        ! load return frame address into 4th argument
+
+1:
+  ! re-enable traps and disable irqs
+  or %t_psr, 0xF20, %l6
   wr %l6, %psr
+
   call pagefault_entry
   nop
-  ! restore psr (clear ET bit by xor-ing)
-  wr %t_psr, %psr
+
+  exception_exit l6
+
+  ! return
+  wr %t_psr, %psr ! restore psr
   nop; nop; nop;
+
   ! return to next PC
   jmpl %t_npc, %g0  ! old nPC
   rett %t_npc + 4   ! old nPC + 4
 
 .globl irq_entry
 irq_entry:
-!  restore
-!    STORE_FRAME() ! store return frame
-!  save
 
-  ! save globals and %y on stack
-  ! TODO can we make this faster by using the local registers instead?
-  add %fp, -STACK_ALLOC_SIZE, %sp   ! get some extra space on the stack
-  STORE_GLOBALS(sp, l6)
+  exception_entry l6
 
   ! prepare arguments
   mov %t_psr, %o0  ! psr
@@ -500,27 +581,6 @@ irq_entry:
   mov %t_npc, %o2  ! nPC
   mov %l7, %o3     ! int lvl
 
-  ! check whether we are in the trap window (see etrap_fast.S from gaisler)
-  mov 1, %g1
-  sll %g1, %t_psr, %g1  ! 1 << psr[4:0]
-  andcc %g1, %t_wim, %g0
-  beq 1f
-   nop
-
-    ! in trap window, clean up
-    ! compute new window
-    srl %t_wim, 0x1, %g2
-    sll %t_wim, 7, %t_wim
-    or %t_wim, %g2, %g2
-    and %g2, 0xff, %g2
-
-    ! get in window to be saved
-    save
-      wr %g2, %wim
-      STORE_FRAME(sp)
-    restore
-
-1:
   ! re-enable traps and disable irqs
   or %t_psr, 0xF20, %l6
   wr %l6, %psr
@@ -529,37 +589,8 @@ irq_entry:
   call irq_handler
   nop
 
-	/* Will the rett land us in the invalid window? */
-  mov	2, %g1
-  sll	%g1, %t_psr, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
+  exception_exit l6
 
-  srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
-  or	%g1, %g2, %g1
-  rd	%wim, %g2
-  andcc	%g2, %g1, %g0
-  be	2f		            ! Nope, just return from the trap
-   sll %g2, 0x1, %g1
-
-    /* We have to grab a window before returning. */
-    srl	%g2, 7, %g2
-    or	%g1, %g2, %g1
-    and	%g1, 0xff, %g1
-
-    wr	%g1, 0x0, %wim
-
-    /* Grrr, make sure we load from the right %sp... */
-    RESTORE_GLOBALS(sp, l6)
-	
-    restore
-      RESTORE_FRAME(sp)
-      b	3f
-    save
-
-2:
-  ! restore globals and %y from stack
-  RESTORE_GLOBALS(sp, l6)
-
-3:
   ! return
   wr %t_psr, %psr ! restore psr
   nop; nop; nop;

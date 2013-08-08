@@ -14,6 +14,8 @@ IMPLEMENTATION [sparc]:
 #include "trap_state.h"
 #include "types.h"
 
+extern Mword *ksp;
+
 //enum {
 //  FSR_STATUS_MASK = 0x0d,
 //  FSR_TRANSL      = 0x05,
@@ -72,6 +74,7 @@ Thread::user_invoke()
          current_thread()->dbg_id(), r->ip(), r->sp());
   printf("kernel_sp %p kip %p\n", current_thread()->regs(), kip);
 
+  ksp = (Mword*)current_thread()->regs();
 
   Proc::stack_pointer(r->sp());
 
