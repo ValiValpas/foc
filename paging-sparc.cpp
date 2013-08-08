@@ -440,7 +440,6 @@ IMPLEMENT inline NEEDS["psr.h"]
 Mword PF::is_usermode_error(Mword error)
 {
   bool is_supervisor = (error & Fsr::Supervisor_mask);
-  assert((Psr::read() >> Psr::Prev_superuser) & 0x1 == is_supervisor);
   return !is_supervisor;
 }
 

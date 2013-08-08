@@ -128,12 +128,9 @@ extern "C" {
                         const Mword pc, Return_frame *ret_frame)
   {
     (void)ret_frame;
-    printf("Page fault at %08lx (%s) from %08lx\n", pfa, PF::is_read_error(error_code)?"ro":"rw", pc);
-    printf("FT %lx, AT %lx\n",
-           (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
-           (error_code & Fsr::Access_type_mask) >> Fsr::Access_type);
     if(EXPECT_TRUE(PF::is_usermode_error(error_code)))
       {
+        assert(((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0);
         if (current_thread()->vcpu_pagefault(pfa, error_code, pc))
           return 1;
 
@@ -141,9 +138,13 @@ extern "C" {
         Proc::sti();
       }
 
+    printf("Page fault at %08lx (%s) from %08lx\n", pfa, PF::is_read_error(error_code)?"ro":"rw", pc);
+    printf("FT %lx, AT %lx\n",
+           (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
+           (error_code & Fsr::Access_type_mask) >> Fsr::Access_type);
+
     // FIXME fix ret_frame (in crt0.S)
-//    int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
-    int ret = false;
+    int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
     if (!ret)
     {
       panic("Couldn't resolve page fault!\n");
