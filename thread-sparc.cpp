@@ -66,7 +66,7 @@ Thread::user_invoke()
 
   Return_frame *r = nonull_static_cast<Return_frame*>(current()->regs());
   Kip *kip = (EXPECT_FALSE(current_thread()->mem_space()->is_sigma0())) ?
-             Kip::k() : 0;
+             (Kip*)Mem_space::kernel_space()->virt_to_phys((Address)Kip::k()) : 0;
 
   printf("\n[%lx]leaving kernel ip %lx sp %lx\n",
          current_thread()->dbg_id(), r->ip(), r->sp());
