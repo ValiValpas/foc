@@ -84,9 +84,9 @@ Context::switch_cpu(Context *t)
 
   asm volatile ("ra:");
   // load fp from stack
-  Proc::frame_pointer(((Return_frame*)Proc::stack_pointer())->i6);
+  Proc::frame_pointer(((Stack_frame*)Proc::stack_pointer())->i6);
   // load return address from stack
-  Proc::return_address(((Return_frame*)Proc::stack_pointer())->i7);
+  Proc::return_address(((Stack_frame*)Proc::stack_pointer())->i7);
 
   printf("ra=0x%08lx, fp=0x%08lx\n", Proc::return_address(), Proc::frame_pointer());
   

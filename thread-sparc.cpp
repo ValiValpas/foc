@@ -72,9 +72,9 @@ Thread::user_invoke()
 
   printf("\n[%lx]leaving kernel ip %lx sp %lx\n",
          current_thread()->dbg_id(), r->ip(), r->sp());
-  printf("kernel_sp %p kip %p\n", current_thread()->regs(), kip);
+  printf("kernel_sp %p kip %p\n", r, kip);
 
-  ksp = (Mword*)current_thread()->regs();
+  ksp = (Mword*)r;
 
   Proc::stack_pointer(r->sp());
 
@@ -213,6 +213,8 @@ Thread::Thread()
   _recover_jmpbuf = 0;
   _timeout = 0;
 
+  // reserve an initial stack frame 
+  _kernel_sp = (Mword*)((Mword)_kernel_sp - Config::Stack_frame_size);
   // preserve stack alignment
   --_kernel_sp;
   // set the initial restart address of the thread

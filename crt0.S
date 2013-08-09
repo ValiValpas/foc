@@ -52,9 +52,9 @@
   ldd   [%base_reg + 56], %i6; \
 
 #define STORE_RETURN_FRAME(base_reg) \
-  st %sp,   [%base_reg + 96]; \
-  st %t_pc, [%base_reg + 104]; \
-  st %t_psr,[%base_reg + 108]; \
+  st %sp,   [%base_reg + 0]; \
+  st %t_pc, [%base_reg + 8]; \
+  st %t_psr,[%base_reg + 12]; \
 
 .macro exception_entry scratch
   ! if user mode exception: switch to kernel

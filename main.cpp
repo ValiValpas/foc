@@ -89,12 +89,13 @@ int main()
   //kdb_ke("init");
 
   // switch to stack of kernel thread and bootstrap the kernel
+  Mword sp = (Mword)kernel->init_stack() - Config::Stack_frame_size;
   asm volatile (
      " mov %[stack], %%sp         \n" //new stack
      " mov %[kernel],%%o0         \n" //"this" pointer
 		 " call call_bootstrap        \n"
 		 :
-		 : [stack]"r" (kernel->init_stack()),
+		 : [stack]"r" (sp),
 		   [kernel]"r" (kernel)
 		 );
 

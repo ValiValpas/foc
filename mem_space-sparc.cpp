@@ -156,7 +156,6 @@ PROTECTED inline
 void
 Mem_space::sync_kernel()
 {
-  // TODO do we actually need sync_kernel?
   _dir->sync(Virt_addr(Mem_layout::User_max), kernel_space()->_dir,
              Virt_addr(Mem_layout::User_max),
              Virt_size(-Mem_layout::User_max), Pdir::Super_level,

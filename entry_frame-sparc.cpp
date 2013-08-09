@@ -11,7 +11,7 @@ EXTENSION class Syscall_frame
     void dump() const;
 };
 
-EXTENSION class Return_frame
+class Stack_frame
 {
   // as in kern/sparc/crt0.S
   public:
@@ -32,10 +32,15 @@ EXTENSION class Return_frame
     Mword i6;   //+56
     Mword i7;   //+60
     Mword reserved[8]; //+64 to +92
-    // end of stack frame
+};
+
+EXTENSION class Return_frame
+{
+  // as in kern/sparc/crt0.S
+  public:
     Mword usp;
     // FIXME some confusion about user return address and the purpose of spill/fill_user_state
-    Mword ura; // user return address (i7)
+    Mword ura; // user return address (i7), dont think we need to save this on sparc
     Mword pc;
     Mword psr;
     void dump();
