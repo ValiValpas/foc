@@ -6,8 +6,14 @@ INTERFACE[sparc]:
 EXTENSION class Syscall_frame
 {
   public:
-    // FIXME adapt to sparc
-//    Mword r[30];
+    Mword i0; // tag
+    Mword i1; // dest
+    Mword i2; // timeout
+    Mword i3; // label
+    Mword i4;
+    Mword i5;
+    Mword i6;
+    Mword i7;
     void dump() const;
 };
 
@@ -144,48 +150,39 @@ Mword Syscall_frame::next_period() const
 IMPLEMENT inline
 void Syscall_frame::from(Mword id)
 {
-  NOT_IMPL_PANIC;
-  (void)id;
-//  r[5] = id; /*r6*/
+  i3 = id;
 }
 
 IMPLEMENT inline
 Mword Syscall_frame::from_spec() const
 {
-  NOT_IMPL_PANIC;
-//  return r[5]; /*r6*/
+  return i3;
 }
 
 
 IMPLEMENT inline
 L4_obj_ref Syscall_frame::ref() const
 {
-  NOT_IMPL_PANIC;
-//  return L4_obj_ref::from_raw(r[3]); /*r4*/
+  return L4_obj_ref::from_raw(i1);
 }
 
 IMPLEMENT inline
 void Syscall_frame::ref(L4_obj_ref const &ref)
 {
-  NOT_IMPL_PANIC;
-  (void)ref;
-//  r[3] = ref.raw(); /*r4*/
+  i1 = ref.raw();
 }
 
 IMPLEMENT inline
 L4_timeout_pair Syscall_frame::timeout() const
 { 
-  NOT_IMPL_PANIC;
-//  return L4_timeout_pair(r[4]); /*r5*/
+  return L4_timeout_pair(i2);
 }
 
 
 IMPLEMENT inline 
 void Syscall_frame::timeout(L4_timeout_pair const &to)
 {
-  NOT_IMPL_PANIC;
-  (void)to;
-//  r[4] = to.raw(); /*r5*/
+  i2 = to.raw();
 }
 
 IMPLEMENT inline Utcb *Syscall_frame::utcb() const
@@ -196,15 +193,12 @@ IMPLEMENT inline Utcb *Syscall_frame::utcb() const
 
 IMPLEMENT inline L4_msg_tag Syscall_frame::tag() const
 {
-  NOT_IMPL_PANIC;
-//  return L4_msg_tag(r[2]); /*r3*/
+  return L4_msg_tag(i0);
 }
 
 IMPLEMENT inline
 void Syscall_frame::tag(L4_msg_tag const &tag)
 {
-  NOT_IMPL_PANIC;
-  (void)tag;
-//  r[2] = tag.raw(); /*r3*/
+  i0 = tag.raw();
 }
 

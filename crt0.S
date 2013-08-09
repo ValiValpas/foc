@@ -51,10 +51,14 @@
   ldd   [%base_reg + 48], %i4; \
   ldd   [%base_reg + 56], %i6; \
 
-#define STORE_RETURN_FRAME(base_reg) \
-  st %sp,   [%base_reg + 0]; \
-  st %t_pc, [%base_reg + 8]; \
-  st %t_psr,[%base_reg + 12]; \
+#define STORE_ENTRY_FRAME(base_reg) \
+  std %i0,  [%base_reg + 0]; \
+  std %i2,  [%base_reg + 8]; \
+  std %i4,  [%base_reg + 16]; \
+  std %i6,  [%base_reg + 24]; \
+  st %sp,   [%base_reg + 32]; \
+  st %t_pc, [%base_reg + 40]; \
+  st %t_psr,[%base_reg + 44]; \
 
 .macro exception_entry scratch
   ! if user mode exception: switch to kernel
@@ -64,7 +68,7 @@
 
     sethi %hi(ksp), %\scratch
     ld [%\scratch + %lo(ksp)], %\scratch
-    STORE_RETURN_FRAME(\scratch)
+    STORE_ENTRY_FRAME(\scratch)
 
 1:
   add %\scratch, -STACK_ALLOC_SIZE, %sp ! alloc space on kernel stack and set sp
