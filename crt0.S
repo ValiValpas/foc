@@ -290,7 +290,7 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x8d
   BAD_TRAP                       // 0x8e
   BAD_TRAP                       // 0x8f
-  BAD_TRAP                       // 0x90
+  TRAP(syscall_entry)            // 0x90
   BAD_TRAP                       // 0x91
   BAD_TRAP                       // 0x92
   BAD_TRAP                       // 0x93
@@ -569,6 +569,11 @@ sparc_data_exception:
   ! return to next PC
   jmpl %t_npc, %g0  ! old nPC
   rett %t_npc + 4   ! old nPC + 4
+
+.globl syscall_enty
+syscall_entry:
+  ta 0
+  nop
 
 .globl irq_entry
 irq_entry:

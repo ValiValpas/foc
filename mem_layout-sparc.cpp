@@ -20,7 +20,7 @@ public:
     // unmapped addresses
     Utcb_ptr_page        = 0xffffc000,
     Tbuf_status_page     = 0xffffd000,
-    Syscalls             = 0xffffe000,   // TODO change to 0xfffff000 once the bcc bug has been fixed
+    Syscalls             = 0xfffff000,
     Tbuf_buffer_area     = 0xffd00000,
     Tbuf_ubuffer_area    = Tbuf_buffer_area,
 
