@@ -593,10 +593,38 @@ sparc_data_exception:
   jmp %t_pc
   rett %t_npc
 
-.globl syscall_enty
+.globl syscall_entry
 syscall_entry:
-  ta 0
+  ! since we use a syscall page to indirectly invoke syscalls we need
+  ! to replace the pc in the Syscall_frame with the correct address (not the one of ta 0x10)
+  mov %t_pc, %l5   ! save address of ta instruction
+  mov %i7, %t_pc
+
+  ! create exception context without saving globals
+  exception_entry l6 0
+
+  ! re-enable traps and disable irqs
+  or %t_psr, 0xF20, %l6
+  wr %l6, %psr
+
+  ! resolve syscall handler
+  sethi %hi(sys_call_table), %l6
+  or %l6, %lo(sys_call_table), %l6
+  sub %l6, %l5, %l6  ! magic... last address in the syscall page is -4, then -8, etc.
+  ld [%l6], %l6
+  call %l6
   nop
+
+  ! restore from exception context (no globals, but restore entry frame)
+  exception_exit l6 0 1
+
+  ! return
+  wr %t_psr, %psr ! restore psr
+  nop; nop; nop;
+
+  ! remark: t_npc is now actually the initial value of i7
+  jmpl %t_npc, %g0
+  rett %t_npc + 4
 
 .globl irq_entry
 irq_entry:
