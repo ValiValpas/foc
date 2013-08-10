@@ -60,7 +60,16 @@
   st %t_pc, [%base_reg + 36]; \
   st %t_psr,[%base_reg + 40]; \
 
-.macro exception_entry scratch
+#define RESTORE_ENTRY_FRAME(base_reg) \
+  ldd [%base_reg + 0],  %i0;   \
+  ldd [%base_reg + 8],  %i2;   \
+  ldd [%base_reg + 16], %i4;   \
+  ldd [%base_reg + 24], %i6;   \
+  ld  [%base_reg + 32], %sp;   \
+  ld  [%base_reg + 36], %t_npc;\
+  ld  [%base_reg + 40], %t_psr;\
+
+.macro exception_entry scratch globals=1
   ! if user mode exception: switch to kernel
   btst 0x40, %t_psr
   bne 1f                          ! skip if PS bit is set
@@ -73,8 +82,10 @@
 1:
   add %\scratch, -STACK_ALLOC_SIZE, %sp ! alloc space on kernel stack and set sp
 
+.if \globals
   ! save globals and %y on kernel stack
   STORE_GLOBALS(sp, \scratch)
+.endif
 
   ! check whether we are in the trap window (see etrap_fast.S from gaisler)
   mov 1, %g1
@@ -100,7 +111,7 @@
 
 .endm
 
-.macro exception_exit scratch
+.macro exception_exit scratch globals=1 restore_usr=0
 	/* Will the rett land us in the invalid window? */
   mov	2, %g1
   sll	%g1, %t_psr, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
@@ -119,8 +130,10 @@
 
     wr	%g1, 0x0, %wim
 
+.if \globals
     /* Grrr, make sure we load from the right %sp... */
     RESTORE_GLOBALS(sp, \scratch)
+.endif
 	
     restore
       RESTORE_FRAME(sp)
@@ -128,9 +141,15 @@
     save
 
 1:
+.if \globals
   ! restore globals and %y from stack
   RESTORE_GLOBALS(sp, \scratch)
+.endif
 2:
+.if \restore_usr
+  add %sp, STACK_ALLOC_SIZE, %\scratch
+  RESTORE_ENTRY_FRAME(\scratch)
+.endif
 .endm
 
 .data
