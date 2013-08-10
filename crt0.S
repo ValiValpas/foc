@@ -129,7 +129,7 @@
 
 1:
   ! restore globals and %y from stack
-  RESTORE_GLOBALS(sp, l6)
+  RESTORE_GLOBALS(sp, \scratch)
 2:
 .endm
 
