@@ -67,7 +67,6 @@
   ldd [%base_reg + 24], %i6;   \
   ld  [%base_reg + 32], %sp;   \
   ld  [%base_reg + 36], %t_npc;\
-  ld  [%base_reg + 40], %t_psr;\
 
 .macro exception_entry scratch globals=1
   ! if user mode exception: switch to kernel
