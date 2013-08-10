@@ -57,8 +57,8 @@
   std %i4,  [%base_reg + 16]; \
   std %i6,  [%base_reg + 24]; \
   st %sp,   [%base_reg + 32]; \
-  st %t_pc, [%base_reg + 40]; \
-  st %t_psr,[%base_reg + 44]; \
+  st %t_pc, [%base_reg + 36]; \
+  st %t_psr,[%base_reg + 40]; \
 
 .macro exception_entry scratch
   ! if user mode exception: switch to kernel

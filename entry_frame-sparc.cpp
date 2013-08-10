@@ -45,8 +45,6 @@ EXTENSION class Return_frame
   // as in kern/sparc/crt0.S
   public:
     Mword usp;
-    // FIXME some confusion about user return address and the purpose of spill/fill_user_state
-    Mword ura; // user return address (i7), dont think we need to save this on sparc
     Mword pc;
     Mword psr;
     void dump();

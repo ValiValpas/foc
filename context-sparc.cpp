@@ -26,7 +26,7 @@ Context::spill_user_state()
   Entry_frame *ef = regs();
   assert_kdb (current() == this);
   ef->sp(Proc::stack_pointer());
-  ef->ura = Proc::return_address();
+//  ef->ura = Proc::return_address();
 }
 
 IMPLEMENT inline
@@ -35,7 +35,7 @@ Context::fill_user_state()
 {
   Entry_frame *ef = regs();
   Proc::stack_pointer(ef->sp());
-  Proc::return_address(ef->ura);
+//  Proc::return_address(ef->ura);
 }
 
 PROTECTED inline void Context::arch_setup_utcb_ptr() {}
