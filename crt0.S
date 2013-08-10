@@ -598,6 +598,7 @@ syscall_entry:
   ! to replace the pc in the Syscall_frame with the correct address (not the one of ta 0x10)
   mov %t_pc, %l5   ! save address of ta instruction
   mov %i7, %t_pc
+  add %t_pc, 8, %t_pc
 
   ! create exception context without saving globals
   exception_entry l6 0
