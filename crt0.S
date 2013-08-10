@@ -607,6 +607,20 @@ irq_entry:
   jmp %t_pc
   rett %t_npc
 
+.global sys_call_table
+sys_call_table:
+  .long 0
+  .long sys_kdb_ke                // +0x4   = -0xFFFFFFFC
+  .long sys_kdb_ke                // +0x8   = -0xFFFFFFF8
+  .long sys_ipc_wrapper           // +0xC   = -0xFFFFFFF4
+  .long sys_kdb_ke                // +0x10  = -0xFFFFFFF0
+  .long sys_invoke_debug_wrapper  // +0x14  = -0xFFFFFFEC
+  .long sys_kdb_ke                // +0x18  = -0xFFFFFFE8
+  .long sys_kdb_ke                // +0x1C  = -0xFFFFFFE4
+  .long sys_kdb_ke                // +0x20  = -0xFFFFFFE0
+  .long sys_kdb_ke                // +0x24  = -0xFFFFFFDC
+  .long sys_kdb_ke                // +0x28  = -0xFFFFFFD8
+
 .previous
 .section .bss
 .align 16
