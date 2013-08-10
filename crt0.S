@@ -570,9 +570,9 @@ sparc_data_exception:
   wr %t_psr, %psr ! restore psr
   nop; nop; nop;
 
-  ! return to next PC
-  jmpl %t_npc, %g0  ! old nPC
-  rett %t_npc + 4   ! old nPC + 4
+  ! re-execute trapped instruction
+  jmp %t_pc
+  rett %t_npc
 
 .globl syscall_enty
 syscall_entry:
