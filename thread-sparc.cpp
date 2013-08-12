@@ -70,11 +70,11 @@ Thread::user_invoke()
   Kip *kip = (EXPECT_FALSE(current_thread()->mem_space()->is_sigma0())) ?
              (Kip*)Mem_space::kernel_space()->virt_to_phys((Address)Kip::k()) : 0;
 
+  ksp = (Mword*)current()->regs();
+
   printf("\n[%lx]leaving kernel ip %lx sp %lx\n",
          current_thread()->dbg_id(), r->ip(), r->sp());
-  printf("kernel_sp %p kip %p\n", r, kip);
-
-  ksp = (Mword*)r;
+  printf("kernel_sp %p kip %p\n", ksp, kip);
 
   Proc::stack_pointer(r->sp());
 
@@ -92,8 +92,6 @@ Thread::user_invoke()
       [kip] "r" (kip)
     :
   );
-
-  // TODO jump to return_from_exception (restores context including globals)
 
   // never returns
   panic("Hit unreachable instruction in user_invoke()\n");
