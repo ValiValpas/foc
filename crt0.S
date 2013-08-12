@@ -169,7 +169,7 @@ ksp:
 .align(0x1000)
 _leon_traphandlers:
   BAD_TRAP                       // 0x00
-  TRAP(sparc_data_exception);    // 0x01
+  TRAP_ENTRY(sparc_data_exception);    // 0x01
   BAD_TRAP                       // 0x02
   BAD_TRAP                       // 0x03
   BAD_TRAP                       // 0x04
@@ -177,7 +177,7 @@ _leon_traphandlers:
   TRAP(sparc_window_underflow);  // 0x06
   BAD_TRAP                       // 0x07
   BAD_TRAP                       // 0x08
-  TRAP(sparc_data_exception);    // 0x09
+  TRAP_ENTRY(sparc_data_exception);    // 0x09
   BAD_TRAP                       // 0x0a
   BAD_TRAP                       // 0x0b
   BAD_TRAP                       // 0x0c
@@ -312,7 +312,7 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x8d
   BAD_TRAP                       // 0x8e
   BAD_TRAP                       // 0x8f
-  TRAP(syscall_entry)            // 0x90
+  TRAP_ENTRY(syscall_entry)      // 0x90
   BAD_TRAP                       // 0x91
   BAD_TRAP                       // 0x92
   BAD_TRAP                       // 0x93
