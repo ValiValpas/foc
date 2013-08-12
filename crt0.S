@@ -132,6 +132,8 @@
 .if \globals
     /* Grrr, make sure we load from the right %sp... */
     RESTORE_GLOBALS(sp, \scratch)
+.else
+    nop; nop; nop;
 .endif
 	
     restore
