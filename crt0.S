@@ -16,6 +16,18 @@
 ! maybe we just need an additional 32 bytes
 #define STACK_ALLOC_SIZE 128
 
+! == sizeof(Syscall_frame)
+#define RETURN_FRAME_OFFSET 32
+
+#define RESTORE_PSR(from, scratch) \
+  srl  %from, 5, %from; \
+  sll  %from, 5, %from; \
+  mov %psr, %scratch; \
+  and %scratch, 0x1F, %scratch; \
+  or  %scratch, %from, %scratch; \
+  mov %scratch, %psr; \
+  nop; nop; nop; nop; 
+
 #define STORE_GLOBALS(base_reg, scratch) \
   rd  %y, %scratch;                \
   st  %scratch, [%base_reg + 96];  \
@@ -113,7 +125,8 @@
 .macro exception_exit scratch globals=1 restore_usr=0
 	/* Will the rett land us in the invalid window? */
   mov	2, %g1
-  sll	%g1, %t_psr, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
+  mov %psr, %\scratch
+  sll	%g1, %\scratch, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
 
   srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
   or	%g1, %g2, %g1
@@ -137,8 +150,13 @@
 .endif
 	
     restore
+      ! don't restore if sp=0
+      cmp %sp, 0
+      beq 3f
+      nop
+
       RESTORE_FRAME(sp)
-      b	2f
+3:    b	2f
     save
 
 1:
@@ -171,7 +189,7 @@ ksp:
 .align(0x1000)
 _leon_traphandlers:
   BAD_TRAP                       // 0x00
-  TRAP_ENTRY(sparc_data_exception);    // 0x01
+  TRAP_ENTRY(sparc_inst_exception);    // 0x01
   BAD_TRAP                       // 0x02
   BAD_TRAP                       // 0x03
   BAD_TRAP                       // 0x04
@@ -522,10 +540,14 @@ sparc_window_overflow:
    */
   save
      mov %g1, %wim
-     nop; nop; nop
+
+     /* remark: add 3 NOPs if you remove the following instructions */
+     cmp %sp, 0
+     beq 2f
+     nop
 
      STORE_FRAME(sp)
-
+2:
   restore
   mov %l7, %g1
   jmp %t_pc
@@ -555,7 +577,11 @@ sparc_window_underflow:
 
   restore             ! Two restores to get into the
   restore             ! window to restore
-  RESTORE_FRAME(sp)   ! Restore window from the stack
+    cmp %sp, 0
+    beq 2f
+    nop
+    RESTORE_FRAME(sp) ! Restore window from the stack
+2:
   save                ! Get back to the trap window.
   save
 
@@ -564,19 +590,31 @@ sparc_window_underflow:
 
 1: ta 0
 
+.globl sparc_inst_exception
+sparc_inst_exception:
+  exception_entry l6
+
+  mov %t_pc, %o0      ! fault address == instruction address
+
+  ba mmu_exception_continue
+  nop
+
 .globl sparc_data_exception
 sparc_data_exception:
   exception_entry l6
 
-  set 0x300, %l3  ! address of MMU fault status register
   set 0x400, %l4  ! address of MMU fault address register
-  lda [%l4] 0x19, %o0 ! load fault address into 1st argument
+  lda [%l4] 0x19, %o0   ! load fault address into 1st argument
+
+mmu_exception_continue:
+  set 0x300, %l3  ! address of MMU fault status register
   lda [%l3] 0x19, %o1 ! load status register into 2nd argument
+
   mov %t_pc, %o2        ! load faulting instruction into 3rd argument
   sethi %hi(ksp), %l6
-  ld  [%l6 + %lo(ksp)], %o3        ! load return frame address into 4th argument
+  ld  [%l6 + %lo(ksp)], %o3          ! load entry frame address
+  add %o3, RETURN_FRAME_OFFSET, %o3  ! load return frame address into 4th argument
 
-1:
   ! re-enable traps and disable irqs
   or %t_psr, 0xF20, %l6
   wr %l6, %psr
@@ -587,8 +625,7 @@ sparc_data_exception:
   exception_exit l6
 
   ! return
-  wr %t_psr, %psr ! restore psr
-  nop; nop; nop;
+  RESTORE_PSR(t_psr, l6)
 
   ! re-execute trapped instruction
   jmp %t_pc
@@ -621,8 +658,7 @@ syscall_entry:
   exception_exit l6 0 1
 
   ! return
-  wr %t_psr, %psr ! restore psr
-  nop; nop; nop;
+  RESTORE_PSR(t_psr, l6)
 
   ! remark: t_npc is now actually the initial value of i7
   jmpl %t_npc, %g0
@@ -650,8 +686,7 @@ irq_entry:
   exception_exit l6
 
   ! return
-  wr %t_psr, %psr ! restore psr
-  nop; nop; nop;
+  RESTORE_PSR(t_psr, l6)
 
   jmp %t_pc
   rett %t_npc

@@ -76,13 +76,17 @@ Thread::user_invoke()
          current_thread()->dbg_id(), r->ip(), r->sp());
   printf("kernel_sp %p kip %p\n", ksp, kip);
 
-  Proc::stack_pointer(r->sp());
+  // init thread with sp=0 on sparc so that we can test for this within
+  // overflow (underflow) traps and don't write to (read from) unmapped memory
+  Proc::stack_pointer(0);
 
   // restore psr
   Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap) | (Psr::read() & ~Psr::Usr_ret_mask);
   asm volatile
   (
-    "mov %[psr], %%psr\n"  // 3 slots until psr modification is carried out
+    "mov %[psr], %%psr\n"
+    // pipeline flush takes 6 instructions
+    "nop; nop; nop;\n"
     "mov %[kip], %%o0 \n"
     "jmp %[ret]       \n"
     "nop              \n"
@@ -128,7 +132,6 @@ extern "C" {
   Mword pagefault_entry(const Mword pfa, const Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
-    (void)ret_frame;
     if(EXPECT_TRUE(PF::is_usermode_error(error_code)))
       {
         assert(((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0);
@@ -144,7 +147,6 @@ extern "C" {
            (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
            (error_code & Fsr::Access_type_mask) >> Fsr::Access_type);
 
-    // FIXME fix ret_frame (in crt0.S)
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
     if (!ret)
     {
