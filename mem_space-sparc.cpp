@@ -366,10 +366,16 @@ bool
 Mem_space::v_lookup(Vaddr virt, Phys_addr *phys, Page_order *order,
 		    Attr *page_attribs)
 {
-  // FIXME implement PT walk
-  NOT_IMPL_PANIC;
-  (void)virt; (void)phys; (void)order; (void)page_attribs;
-  return false;
+  auto i = _dir->walk(virt);
+  if (order) *order = Page_order(i.page_order());
+
+  if (!i.is_valid())
+    return false;
+
+  if (phys) *phys = Phys_addr(i.page_addr());
+  if (page_attribs) *page_attribs = i.attribs();
+
+  return true;
 }
 
 /** Delete page-table entries, or some of the entries' attributes.  This
