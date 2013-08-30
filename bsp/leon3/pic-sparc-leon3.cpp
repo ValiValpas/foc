@@ -1,5 +1,4 @@
-//INTERFACE [sparc && leon3]:
-INTERFACE [sparc]:
+INTERFACE [sparc && leon3]:
 
 #include "types.h"
 #include "io.h"
@@ -81,9 +80,7 @@ public:
 };
 
 //------------------------------------------------------------------------------
-// FIXME conditional compilation
-//IMPLEMENTATION [sparc && leon3]:
-IMPLEMENTATION [sparc]:
+IMPLEMENTATION [sparc && leon3]:
 
 //#include "boot_info.h"
 //#include "io.h"

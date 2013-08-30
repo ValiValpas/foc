@@ -1,5 +1,4 @@
-//INTERFACE [sparc && leon3]:
-INTERFACE [sparc]:
+INTERFACE [sparc && leon3]:
 
 #define TARGET_NAME "LEON3"
 

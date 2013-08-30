@@ -1,6 +1,4 @@
-//FIXME conditional compilation (leon3)
-//IMPLEMENTATION[sparc && leon3]:
-IMPLEMENTATION[sparc]:
+IMPLEMENTATION[sparc && leon3]:
 
 #include<sparc_types.h>
 #include "panic.h"
