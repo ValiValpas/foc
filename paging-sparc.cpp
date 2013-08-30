@@ -25,7 +25,8 @@ public:
     Access_type_mask      = 0x7  << 5,
     Fault_type_mask       = 0x7  << 2,
     Supervisor_mask       = 0x20,
-    Access_store_mask     = 0x80
+    Access_store_mask     = 0x80,
+    Reserved_mask         = 0x3FFF << 18
   };
 
   /// MMU fault types, see sparc v8 manual p.256ff
@@ -50,6 +51,11 @@ public:
     Super_data_store = 0x5,
     User_inst_store  = 0x6,
     Super_inst_store = 0x7
+  };
+
+  /// reserved bits
+  enum Reserved_bits {
+    User_mode = 31
   };
 };
 
@@ -238,6 +244,40 @@ Pte_ptr::_attribs(Page::Attr attr) const
   if (attr.type == T::Uncached()) r &= ~Cacheable;
 
   return r | perms[cxx::int_value<L4_fpage::Rights>(attr.rights)];
+}
+
+PUBLIC inline
+Page::Attr
+Pte_ptr::attribs() const
+{
+  auto r = access_once(pte);
+  auto c = r & Cacheable;
+  r = (r & Accperm_mask) >> Accperm_shift;
+
+  typedef L4_fpage::Rights R;
+  typedef Page::Type T;
+
+  R rights;
+  switch (r)
+    {
+    case Accperm_RO:     rights = R::UR();           break;
+    case Accperm_RX:     rights = R::URX();          break;
+    case Accperm_RW:     rights = R::URW();          break;
+    case Accperm_RWX:    rights = R::URWX();         break;
+    case Accperm_NO_RX:  rights = R::RX();           break;
+    case Accperm_NO_RWX: rights = R::RWX();          break;
+    case Accperm_RO_RW:  rights = R::UR();           break;
+    case Accperm_XO:     rights = R::U() | R::X();   break;
+    }
+
+  T type;
+  switch (c)
+    {
+    case Cacheable: type = T::Normal();   break;
+    default:        type = T::Uncached(); break;
+    }
+
+  return Page::Attr(rights, type);
 }
 
 PUBLIC inline NEEDS[Pte_ptr::_attribs]
