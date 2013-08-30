@@ -476,11 +476,10 @@ Mword PF::is_translation_error(Mword error)
   return fault_type == Fsr::Invalid_addr;
 }
 
-IMPLEMENT inline NEEDS["psr.h"]
+IMPLEMENT inline
 Mword PF::is_usermode_error(Mword error)
 {
-  bool is_supervisor = (error & Fsr::Supervisor_mask);
-  return !is_supervisor;
+  return (error & (1 << Fsr::User_mode)) != 0;
 }
 
 IMPLEMENT inline

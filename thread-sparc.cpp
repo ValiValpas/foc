@@ -129,9 +129,14 @@ extern "C" {
    * @param error_code MMU fault register
    * @return true if page fault could be resolved, false otherwise
    */
-  Mword pagefault_entry(const Mword pfa, const Mword error_code,
+  Mword pagefault_entry(const Mword pfa, Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
+    error_code &= ~Fsr::Reserved_mask;
+    if (((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0) {
+      error_code |= 1 << Fsr::User_mode;
+    }
+
     if(EXPECT_TRUE(PF::is_usermode_error(error_code)))
       {
         assert(((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0);
