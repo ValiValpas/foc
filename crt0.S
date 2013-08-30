@@ -19,6 +19,10 @@
 ! == sizeof(Syscall_frame)
 #define RETURN_FRAME_OFFSET 32
 
+! FIXME this is leon3-specific code and should be moved somewhere else
+#define FLUSH_DCACHE() \
+  sta %g0, [%g0] 0x11;
+
 #define RESTORE_PSR(from, scratch) \
   srl  %from, 5, %from; \
   sll  %from, 5, %from; \
@@ -644,6 +648,8 @@ syscall_entry:
   mov %i7, %t_pc
   add %t_pc, 8, %t_pc
 
+  FLUSH_DCACHE()
+
   ! create exception context without saving globals
   exception_entry l6 0
 
@@ -664,6 +670,8 @@ syscall_entry:
 
   ! return
   RESTORE_PSR(t_psr, l6)
+
+  FLUSH_DCACHE()
 
   ! remark: t_npc is now actually the initial value of i7
   jmpl %t_npc, %g0
