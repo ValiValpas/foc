@@ -91,13 +91,6 @@ Mem_unit::isync()
 }
 
 PUBLIC static inline
-void 
-Mem_unit::flush_caches()
-{
-  asm volatile ("flush");
-}
-
-PUBLIC static inline
 void
 Mem_unit::context(Mword number)
 {

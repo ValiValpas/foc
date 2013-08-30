@@ -3,6 +3,7 @@ IMPLEMENTATION [sparc]:
 #include "banner.h"
 #include "boot_info.h"
 #include "config.h"
+#include "cache.h"
 #include "cpu.h"
 #include "kip_init.h"
 #include "kernel_task.h"
@@ -23,6 +24,7 @@ Startup::stage1()
   Boot_info::init();
   Cpu::early_init();
   Config::init();
+  Cache::init();
 }
 
 IMPLEMENT FIASCO_INIT FIASCO_NOINLINE

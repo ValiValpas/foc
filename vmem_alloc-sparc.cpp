@@ -7,6 +7,7 @@ IMPLEMENTATION [sparc]:
 #include "mem.h"
 #include "mem_space.h"
 #include "kmem_alloc.h"
+#include "cache.h"
 
 IMPLEMENT
 void Vmem_alloc::init()
@@ -24,7 +25,7 @@ void *Vmem_alloc::page_alloc(void * address, Zero_fill zf, unsigned mode)
 
   Address page = Mem_space::kernel_space()->virt_to_phys((Address)vpage);
   assert(page);
-  Mem_unit::flush_caches();
+  Cache::flush_caches();
 
   // insert page into master page table
   auto pte = Mem_space::kernel_space()->dir()->walk(Virt_addr(address),
