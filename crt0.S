@@ -622,6 +622,11 @@ mmu_exception_continue:
   call pagefault_entry
   nop
 
+  ! reset fault status register again since 
+  ! a syscall from the pager (sigma0) seems to set it to 0x146
+  set 0x300, %l3
+  lda [%l3] 0x19, %l3
+
   exception_exit l6
 
   ! return
