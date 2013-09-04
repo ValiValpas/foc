@@ -491,7 +491,7 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x80
   BAD_TRAP                       // 0x81
   BAD_TRAP                       // 0x82
-  BAD_TRAP                       // 0x83
+  TRAP_ENTRY(flush_windows)      // 0x83
   BAD_TRAP                       // 0x84
   BAD_TRAP                       // 0x85
   BAD_TRAP                       // 0x86
@@ -875,6 +875,51 @@ irq_entry:
 
   jmp %t_pc
   rett %t_npc
+
+.globl flush_windows
+flush_windows:
+
+  ! go backwards from the previous window and write until we hit the trap window
+  
+  ! save psr in global register
+  mov %t_psr, %g_psr
+
+  ! save wim in global register
+  mov %t_wim, %g_wim
+
+  ! compute (1 << CWP+2)
+  mov 4, %g1
+  sll %g1, %t_psr, %g1
+  srl %g1, 8, %g2
+  or %g1, %g2, %g1
+
+  ! save this as our new wim
+  and %g1, 0xff, %g_nwim
+
+  ! start from previous window
+  restore
+
+10:
+  andcc %g1, %g_wim, %g0
+  bne 90f
+   and %g1, 0xff, %g1
+
+    restore
+      STORE_FRAME(sp)
+     
+      ! rotate g1 left
+      sll %g1, 1, %g2
+      srl %g1, 7, %g1
+
+      b 10b
+       or %g1, %g2, %g1
+90:
+  mov %g_nwim, %wim
+  mov %g_psr, %psr
+  nop; nop; nop; nop;
+
+  jmpl %t_npc, %g0
+  rett %t_npc + 4
 
 .global sys_call_table
 sys_call_table:
