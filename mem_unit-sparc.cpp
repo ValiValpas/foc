@@ -95,6 +95,7 @@ void
 Mem_unit::context(Mword number)
 {
   Proc::write_alternative<Mmu::Regs>(Mmu::ContextNumber, number);
+  asm volatile("nop; nop; nop; nop; nop; nop;");
 }
 
 PUBLIC static inline
