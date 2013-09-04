@@ -10,18 +10,32 @@
 #define t_pc  l1
 #define t_npc l2
 #define t_wim l3
+#define g_owim g3
+#define g_nwim g4
+#define g_wim  g5
+#define g_sp   g6
+#define g_psr  g7
+
+#define STACK_FRAME_SIZE 96
 
 ! Additional stack space for non-flat traps
 ! (96 for prospective window overflow, 32 for globals)
-! maybe we just need an additional 32 bytes
-#define STACK_ALLOC_SIZE 128
+#define STACK_ALLOC_SIZE (STACK_FRAME_SIZE + 32)
 
 ! == sizeof(Syscall_frame)
 #define RETURN_FRAME_OFFSET 32
 
+#define USER_STACK_OFFSET 48
+
 ! FIXME this is leon3-specific code and should be moved somewhere else
 #define FLUSH_DCACHE() \
   sta %g0, [%g0] 0x11;
+
+#define ROTATE_LEFT(reg, scratch) \
+  sll %reg, 1, %scratch; \
+  srl %reg, 7, %reg; \
+  or  %reg, %scratch, %reg; \
+  and %reg, 0xff, %reg;
 
 #define RESTORE_PSR(from, scratch) \
   srl  %from, 5, %from; \
@@ -84,29 +98,92 @@
   ld  [%base_reg + 32], %sp;   \
   ld  [%base_reg + 36], %t_npc;\
 
-.macro exception_entry scratch globals=1
+.macro exception_entry scratch scratch_sp globals=1
   ! if user mode exception: switch to kernel
   btst 0x40, %t_psr
-  bne 1f                          ! skip if PS bit is set
+  bne 98f                          ! skip if PS bit is set
    mov %fp, %\scratch 
 
     sethi %hi(ksp), %\scratch
     ld [%\scratch + %lo(ksp)], %\scratch
     STORE_ENTRY_FRAME(\scratch)
 
-1:
+    add %\scratch, -STACK_ALLOC_SIZE, %\scratch_sp ! alloc space on kernel stack
+
+.if \globals
+  ! save globals and %y on kernel stack
+  STORE_GLOBALS(\scratch_sp, \scratch)
+  ! now we can safely use globals
+.endif
+
+    ! save CWP
+    mov %t_psr, %g_psr
+
+    ! save WIM
+    mov %t_wim, %g_wim
+
+    ! set Return_frame::user_stack[0]
+    add %\scratch_sp, STACK_ALLOC_SIZE+USER_STACK_OFFSET, %g_sp
+
+    ! flush user context to Return_frame
+    ! <C-equivalent>
+    !   while (!wim[CWP+1])  // previous window not invalid
+    !     restore
+    !     STORE_FRAME(g_sp)
+    !   psr = g_psr          // return to trap window
+    !   wim = 1 << (CWP+1)   // make the previous window invalid
+    ! </C-equivalent>
+
+    ! 1 << (psr[4:0] + 1)
+    mov 2, %g1
+    sll %g1, %t_psr, %g1
+    srl %g1, 8, %g2
+    or %g1, %g2, %g1
+    and %g1, 0xff, %g1
+    
+    ! save (1 << CWP+1)
+    mov %g1, %g_nwim
+10:
+    ! ONLY USE GLOBALS FROM HERE ON
+
+    andcc %g1, %g_wim, %g0
+    bne 20f            ! previous window invalid?
+     nop
+      
+      ! go into previous window
+      restore
+        STORE_FRAME(g_sp)
+
+        ! rotate g1 left
+        ROTATE_LEFT(g1, g2)
+
+        b 10b
+         add %g_sp, STACK_FRAME_SIZE, %g_sp
+20:
+    ! set the wim to BIT(CWP+1)
+    mov %g_nwim, %wim
+    ! return to trap window by restoring the psr
+    mov %g_psr, %psr
+    nop; nop; nop;
+
+    ! set sp and return
+    b 99f
+    mov %\scratch_sp, %sp
+
+98: ! return to kernel
   add %\scratch, -STACK_ALLOC_SIZE, %sp ! alloc space on kernel stack and set sp
 
 .if \globals
   ! save globals and %y on kernel stack
   STORE_GLOBALS(sp, \scratch)
+  ! now we can safely use globals
 .endif
 
   ! check whether we are in the trap window (see etrap_fast.S from gaisler)
   mov 1, %g1
   sll %g1, %t_psr, %g1  ! 1 << psr[4:0]
   andcc %g1, %t_wim, %g0
-  beq 2f
+  beq 99f
    nop
 
     ! in trap window, clean up
@@ -122,21 +199,102 @@
       STORE_FRAME(sp)
     restore
 
-2:
+99:
 
 .endm
 
-.macro exception_exit scratch globals=1 restore_usr=0
+.macro exception_exit scratch scratch_sp globals=1 restore_usr=0
+  /* Will the rett land us in user mode? */
+  btst 0x40, %t_psr
+  bne 90f                          ! skip if PS bit is set
+   mov 2, %g1
+
+    /* assert(wim[CWP+1]==1) */
+    mov %psr, %\scratch
+    sll	%g1, %\scratch, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
+
+    srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
+    or	%g1, %g2, %g1
+    rd	%wim, %g2
+    andcc	%g2, %g1, %g0
+    bne 10f
+     nop
+      ta 0
+       nop
+   /* assert end */
+
+10:
+    /* restore register windows from Return_frame */
+    ! <C-equivalent>
+    !   while (wim != t_wim)
+    !     rotate wim left
+    !     restore
+    !     RESTORE_FRAME(g_sp)
+    !   psr = g_psr
+    ! </C-equivalent>
+
+    ! save current psr
+    mov %psr, %g_psr
+
+    ! save current wim
+    mov %wim, %g_nwim
+
+    ! save old wim before flush
+    mov %t_wim, %g_owim
+
+    ! save old wim after flush
+    mov 2, %g1
+    sll %g1, %t_psr, %g1
+    srl %g1, 8, %g2
+    or %g1, %g2, %g1
+    and %g1, 0xff, %g_wim
+
+    ! get Return_frame::user_stack[0]
+    add %sp, STACK_ALLOC_SIZE+USER_STACK_OFFSET, %g_sp
+
+    ! save sp since we can't use outputs anymore (if we'll return from the trap window)
+    mov %sp, %\scratch_sp
+
+    ! DON'T USE OUTPUTS FROM HERE ON
+20:
+    ! ONLY USE GLOBALS FROM HERE ON
+    andcc %g_wim, %g_owim, %g0
+    bne 25f
+     nop
+
+      ! rotate current wim left and update wim
+      ROTATE_LEFT(g_nwim, g1)
+      mov %g_nwim, %wim
+
+      ! rotate old current wim left
+      ROTATE_LEFT(g_wim, g1)
+
+      restore
+        RESTORE_FRAME(g_sp) 
+        b 20b
+         add %g_sp, STACK_FRAME_SIZE, %g_sp
+25:
+    ! return to trap window by restoring psr
+    mov %g_psr, %psr
+
+    mov 2, %g1
+    b 91f
+     sll %g1, %g_psr, %g1
+
+    ! NOW WE CAN USE LOCALS AND INPUTS AGAIN
+
+90: ! return to kernel
 	/* Will the rett land us in the invalid window? */
-  mov	2, %g1
+  mov %sp, %\scratch_sp
   mov %psr, %\scratch
   sll	%g1, %\scratch, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
 
+91:
   srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
   or	%g1, %g2, %g1
   rd	%wim, %g2
   andcc	%g2, %g1, %g0
-  be	1f		            ! Nope, just return from the trap
+  be	95f		            ! Nope, just return from the trap
    sll %g2, 0x1, %g1
 
     /* We have to grab a window before returning. */
@@ -148,31 +306,37 @@
 
 .if \globals
     /* Grrr, make sure we load from the right %sp... */
-    RESTORE_GLOBALS(sp, \scratch)
+    RESTORE_GLOBALS(\scratch_sp, \scratch)
 .else
     nop; nop; nop;
 .endif
 	
     restore
       ! don't restore if sp=0
-      cmp %sp, 0
-      beq 3f
+      cmp %\scratch_sp, 0
+      beq 93f
       nop
 
-      RESTORE_FRAME(sp)
-3:    b	2f
+      RESTORE_FRAME(\scratch_sp)
+93:   b	99f
     save
 
-1:
+95:
 .if \globals
   ! restore globals and %y from stack
-  RESTORE_GLOBALS(sp, \scratch)
+  RESTORE_GLOBALS(\scratch_sp, \scratch)
 .endif
-2:
+
+99:
 .if \restore_usr
-  add %sp, STACK_ALLOC_SIZE, %\scratch
-  RESTORE_ENTRY_FRAME(\scratch)
+    ! FIXME don't do this if we don't return to user mode
+    !       currently this is only used on syscall_exit but we 
+    !       have to be careful if we ever use this on pagefault_exit
+    !       or irq_exit
+    add %\scratch_sp, STACK_ALLOC_SIZE, %\scratch
+    RESTORE_ENTRY_FRAME(\scratch)
 .endif
+
 .endm
 
 .data
@@ -596,7 +760,7 @@ sparc_window_underflow:
 
 .globl sparc_inst_exception
 sparc_inst_exception:
-  exception_entry l6
+  exception_entry l6 l5
 
   mov %t_pc, %o0      ! fault address == instruction address
 
@@ -605,14 +769,14 @@ sparc_inst_exception:
 
 .globl sparc_data_exception
 sparc_data_exception:
-  exception_entry l6
+  exception_entry l6 l5
 
   set 0x400, %l4  ! address of MMU fault address register
   lda [%l4] 0x19, %o0   ! load fault address into 1st argument
 
 mmu_exception_continue:
-  set 0x300, %l3  ! address of MMU fault status register
-  lda [%l3] 0x19, %o1 ! load status register into 2nd argument
+  set 0x300, %l5  ! address of MMU fault status register
+  lda [%l5] 0x19, %o1 ! load status register into 2nd argument
 
   mov %t_pc, %o2        ! load faulting instruction into 3rd argument
   sethi %hi(ksp), %l6
@@ -628,10 +792,14 @@ mmu_exception_continue:
 
   ! reset fault status register again since 
   ! a syscall from the pager (sigma0) seems to set it to 0x146
-  set 0x300, %l3
-  lda [%l3] 0x19, %l3
+  set 0x300, %l5
+  lda [%l5] 0x19, %l5
 
-  exception_exit l6
+  ! only need to restore the entry frame if we make changes
+  ! to its content during pagefault handling
+  ! otherwise, the register will be restored by an underflow
+  ! trap anyway
+  exception_exit l6 l5
 
   ! return
   RESTORE_PSR(t_psr, l6)
@@ -644,14 +812,14 @@ mmu_exception_continue:
 syscall_entry:
   ! since we use a syscall page to indirectly invoke syscalls we need
   ! to replace the pc in the Syscall_frame with the correct address (not the one of ta 0x10)
-  mov %t_pc, %l5   ! save address of ta instruction
+  mov %t_pc, %t_npc   ! save address of ta instruction
   mov %i7, %t_pc
   add %t_pc, 8, %t_pc
 
   FLUSH_DCACHE()
 
   ! create exception context without saving globals
-  exception_entry l6 0
+  exception_entry l6 l5 0
 
   ! re-enable traps and disable irqs
   or %t_psr, 0xF20, %l6
@@ -660,13 +828,13 @@ syscall_entry:
   ! resolve syscall handler
   sethi %hi(sys_call_table), %l6
   or %l6, %lo(sys_call_table), %l6
-  sub %l6, %l5, %l6  ! magic... last address in the syscall page is -4, then -8, etc.
+  sub %l6, %t_npc, %l6  ! magic... last address in the syscall page is -4, then -8, etc.
   ld [%l6], %l6
   call %l6
   nop
 
   ! restore from exception context (no globals, but restore entry frame)
-  exception_exit l6 0 1
+  exception_exit l6 l5 0 1
 
   ! return
   RESTORE_PSR(t_psr, l6)
@@ -680,7 +848,7 @@ syscall_entry:
 .globl irq_entry
 irq_entry:
 
-  exception_entry l6
+  exception_entry l6 l5
 
   ! prepare arguments
   mov %t_psr, %o0  ! psr
@@ -696,7 +864,7 @@ irq_entry:
   call irq_handler
   nop
 
-  exception_exit l6
+  exception_exit l6 l5
 
   ! return
   RESTORE_PSR(t_psr, l6)

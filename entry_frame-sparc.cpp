@@ -47,6 +47,8 @@ EXTENSION class Return_frame
     Mword usp;
     Mword pc;
     Mword psr;
+    Mword Reserved; // for dword alignment
+    Mword user_stack[Config::Stack_frame_size/sizeof(Mword)][Config::Num_register_windows-1];
     void dump();
     void dump_scratch();
     bool user_mode();
