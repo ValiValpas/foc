@@ -37,6 +37,11 @@
   or  %reg, %scratch, %reg; \
   and %reg, 0xff, %reg;
 
+#define ROTATE_LEFT_FAST(reg, scratch) \
+  sll %reg, 1, %scratch; \
+  srl %reg, 7, %reg; \
+  or  %reg, %scratch, %reg; \
+
 #define RESTORE_PSR(from, scratch) \
   srl  %from, 5, %from; \
   sll  %from, 5, %from; \
@@ -148,14 +153,14 @@
 
     andcc %g1, %g_wim, %g0
     bne 20f            ! previous window invalid?
-     nop
+     and %g1, 0xff, %g1
       
       ! go into previous window
       restore
         STORE_FRAME(g_sp)
 
         ! rotate g1 left
-        ROTATE_LEFT(g1, g2)
+        ROTATE_LEFT_FAST(g1, g2)
 
         b 10b
          add %g_sp, STACK_FRAME_SIZE, %g_sp
@@ -246,8 +251,7 @@
     mov 2, %g1
     sll %g1, %t_psr, %g1
     srl %g1, 8, %g2
-    or %g1, %g2, %g1
-    and %g1, 0xff, %g_wim
+    or %g1, %g2, %g_wim
 
     ! get Return_frame::user_stack[0]
     add %sp, STACK_ALLOC_SIZE+USER_STACK_OFFSET, %g_sp
@@ -260,14 +264,14 @@
     ! ONLY USE GLOBALS FROM HERE ON
     andcc %g_wim, %g_owim, %g0
     bne 25f
-     nop
+     and %g_wim, 0xff, %g_wim
 
       ! rotate current wim left and update wim
       ROTATE_LEFT(g_nwim, g1)
       mov %g_nwim, %wim
 
       ! rotate old current wim left
-      ROTATE_LEFT(g_wim, g1)
+      ROTATE_LEFT_FAST(g_wim, g1)
 
       restore
         RESTORE_FRAME(g_sp) 
