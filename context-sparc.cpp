@@ -1,3 +1,28 @@
+INTERFACE [sparc]:
+
+#include "context.h"
+
+EXTENSION class Context
+{
+protected:
+  enum Canary_value
+  {
+    Canary_value = 0xDEADBEEF,
+    Num_canaries = 0x01,
+  };
+
+  class Stack_canary
+  {
+    public:
+      Stack_canary();
+      void check_canary(void);
+
+      Mword _canaries[Num_canaries];
+  };
+
+  Stack_canary _stack_canary;
+};
+
 IMPLEMENTATION [sparc]:
 
 /** Note: TCB pointer is located in sprg1 */
@@ -18,6 +43,28 @@ IMPLEMENTATION [sparc]:
 #include "warn.h"
 
 extern Mword *ksp;
+
+IMPLEMENT inline
+Context::Stack_canary::Stack_canary()
+{
+  for (unsigned i=0; i < Num_canaries; i++)
+  {
+    _canaries[i] = Canary_value;
+  }
+}
+
+IMPLEMENT inline
+void
+Context::Stack_canary::check_canary()
+{
+  for (unsigned i=0; i < Num_canaries; i++)
+  {
+    if (_canaries[i] != Canary_value)
+    {
+      asm volatile ("ta 0");
+    }
+  }
+}
 
 IMPLEMENT inline
 void
@@ -46,6 +93,8 @@ Context::switch_cpu(Context *t)
 {
   update_consumed_time();
   
+  _stack_canary.check_canary();
+
   // flush register windows (saves current context(s) on the stack)
   Proc::flush_regwins();
 
@@ -113,6 +162,7 @@ void Context::switchin_context(Context *from)
 
   // stolen from arm implementation:
   Utcb_support::current(current()->utcb().usr());
+
   // update kernel entry stack pointer
   ksp = (Mword*)current()->regs();
 }
