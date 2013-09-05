@@ -281,9 +281,9 @@
     ! return to trap window by restoring psr
     mov %g_psr, %psr
 
-    mov 2, %g1
-    b 91f
-     sll %g1, %g_psr, %g1
+    nop
+    b 95f
+     nop
 
     ! NOW WE CAN USE LOCALS AND INPUTS AGAIN
 
@@ -292,8 +292,6 @@
   mov %sp, %\scratch_sp
   mov %psr, %\scratch
   sll	%g1, %\scratch, %g1  ! shift left by CWP (ignores 27 MSBs of t_psr)
-
-91:
   srl	%g1, 8, %g2       ! hard coded number of register windows (could be read from asr17)
   or	%g1, %g2, %g1
   rd	%wim, %g2
