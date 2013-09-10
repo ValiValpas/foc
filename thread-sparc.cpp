@@ -76,9 +76,8 @@ Thread::user_invoke()
          current_thread()->dbg_id(), r->ip(), r->sp());
   printf("kernel_sp %p kip %p\n", ksp, kip);
 
-  // init thread with sp=0 on sparc so that we can test for this within
-  // overflow (underflow) traps and don't write to (read from) unmapped memory
-  Proc::stack_pointer(0);
+
+  Proc::stack_pointer(r->sp());
 
   // restore psr
   Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap) | (Psr::read() & ~Psr::Usr_ret_mask);

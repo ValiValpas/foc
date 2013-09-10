@@ -315,9 +315,6 @@
 	
     restore
       ! don't restore if sp=0
-      cmp %\scratch_sp, 0
-      beq 93f
-      nop
 
       RESTORE_FRAME(\scratch_sp)
 93:   b	99f
@@ -704,6 +701,8 @@ sparc_window_overflow:
    * TODO prevent data access exceptions in overflow/underflow handler
    */
 
+  ! FIXME use ASI 0xA for store if we trapped from user mode
+  
   /*
    * The trick here is to move to a valid stack frame
    * and store the register window contents there.
@@ -745,11 +744,10 @@ sparc_window_underflow:
   mov %l5, %wim
   nop; nop; nop
 
+  ! FIXME use ASI 0xA for store if we trapped from user mode
+
   restore             ! Two restores to get into the
   restore             ! window to restore
-    cmp %sp, 0
-    beq 2f
-    nop
     RESTORE_FRAME(sp) ! Restore window from the stack
 2:
   save                ! Get back to the trap window.
@@ -878,6 +876,8 @@ irq_entry:
 flush_windows:
 
   ! go backwards from the previous window and write until we hit the trap window
+
+  ! FIXME use ASI 0xA for store if we trapped from user mode
   
   ! save psr in global register
   mov %t_psr, %g_psr
