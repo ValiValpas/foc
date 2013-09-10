@@ -381,7 +381,7 @@ Pte_ptr::add_attribs(Page::Attr attr)
       break;
   }
 
-  p = (p & ~Accperm_mask) | o;
+  p = (p & ~Accperm_mask) | (o << Accperm_shift);
   write_now(pte, p);
   return true;
 }
