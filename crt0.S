@@ -518,7 +518,7 @@ _leon_traphandlers:
   BAD_TRAP                       // 0x9d
   BAD_TRAP                       // 0x9e
   BAD_TRAP                       // 0x9f
-  BAD_TRAP                       // 0xa0
+  TRAP_ENTRY(get_utcb)           // 0xa0
   BAD_TRAP                       // 0xa1
   BAD_TRAP                       // 0xa2
   BAD_TRAP                       // 0xa3
@@ -915,6 +915,16 @@ flush_windows:
   mov %g_nwim, %wim
   mov %g_psr, %psr
   nop; nop; nop; nop;
+
+  jmpl %t_npc, %g0
+  rett %t_npc + 4
+
+.globl get_utcb
+get_utcb:
+  ! load utcb address from 0xffffc000 (cp. mem_layout-sparc.cpp)
+  sethi %hi(0xffffc000), %l6
+
+  ld    [%l6 + %lo(0xffffc000)], %i0
 
   jmpl %t_npc, %g0
   rett %t_npc + 4
