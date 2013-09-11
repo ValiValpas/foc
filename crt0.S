@@ -833,6 +833,11 @@ syscall_entry:
   call %l6
   nop
 
+  ! reset fault status register 
+  ! a pagefault from the pager (sigma0) seems to set it to 0x146
+  set 0x300, %l5
+  lda [%l5] 0x19, %l5
+
   ! restore from exception context (no globals, but restore entry frame)
   exception_exit l6 l5 0 1
 
