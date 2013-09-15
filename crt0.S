@@ -13,8 +13,8 @@
 #define g_owim g3
 #define g_nwim g4
 #define g_wim  g5
-#define g_sp   g6
-#define g_psr  g7
+#define g_sp   g7
+#define g_psr  g6
 
 #define STACK_FRAME_SIZE 96
 
@@ -818,8 +818,8 @@ syscall_entry:
 
   FLUSH_DCACHE()
 
-  ! create exception context without saving globals
-  exception_entry l6 l5 0
+  ! create exception context
+  exception_entry l6 l5 1
 
   ! re-enable traps and disable irqs
   or %t_psr, 0xF20, %l6
@@ -838,8 +838,8 @@ syscall_entry:
   set 0x300, %l5
   lda [%l5] 0x19, %l5
 
-  ! restore from exception context (no globals, but restore entry frame)
-  exception_exit l6 l5 0 1
+  ! restore from exception context (restore globals and entry frame)
+  exception_exit l6 l5 1 1
 
   ! return
   RESTORE_PSR(t_psr, l6)
