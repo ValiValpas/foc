@@ -7,7 +7,6 @@ INTERFACE [sparc && leon3]:
 
 //class Irq_chip_icu;
 
-// FIXME adapt pic to sparc
 /**
  * Interface for IRQMP controller (see "GRLIB IP Core User's Manual")
  */

@@ -10,9 +10,11 @@ EXTENSION class Boot_info
      * Return memory-mapped base address of uart/pic
      */
     static Address pic_base();
+    static Address timer_base();
 
   private:
     static Address _pic_base;
+    static Address _timer_base;
     static void lookup_devices();
 };
 

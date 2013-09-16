@@ -8,5 +8,6 @@ uart_IMPL		+= uart-leon3
 pic_IMPL		+= pic-sparc-leon3
 boot_info_IMPL		+= boot_info-sparc-leon3
 clock_IMPL		+= clock-generic
+timer_IMPL += timer-sparc-leon3
 timer_tick_IMPL		+= timer_tick-single-vector timer_tick-sparc
 cache_IMPL += cache-sparc-leon3

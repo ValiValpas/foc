@@ -200,10 +200,19 @@ Pnp::_apb_base = 0;
 Address
 Boot_info::_pic_base = 0;
 
+Address
+Boot_info::_timer_base = 0;
+
 IMPLEMENT static
 Address Boot_info::pic_base()
 {
   return _pic_base;
+}
+
+IMPLEMENT static
+Address Boot_info::timer_base()
+{
+  return _timer_base;
 }
 
 PUBLIC static
@@ -217,7 +226,8 @@ IMPLEMENT static
 void
 Boot_info::lookup_devices()
 {
-  _pic_base = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::IRQMP);
+  _pic_base   = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::IRQMP);
+  _timer_base = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::GPTIMER);
 
   // we map 0x8... to 0xE... in sparc/paging.cpp
   assert((_pic_base & 0xF0000000) == 0x80000000);
@@ -240,4 +250,7 @@ void Boot_info::dump()
 
   addr = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::IRQMP);
   printf("IRQMP at 0x%08lx\n", addr);
+
+  addr = Pnp::find_device_address(Pnp::Vendor_ids::Gaisler, Pnp::Gaisler_Devices::GPTIMER);
+  printf("GPTIMER at 0x%08lx\n", addr);
 }
