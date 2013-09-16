@@ -137,7 +137,6 @@ Context::switch_cpu(Context *t)
   // load return address from stack
   Proc::return_address(((Stack_frame*)Proc::stack_pointer())->i7);
 
-  printf("ra=0x%08lx, fp=0x%08lx\n", Proc::return_address(), Proc::frame_pointer());
   
   // at this point a ret and restore will cause an underflow trap
   // which, in turn, restores a register window from the new stack

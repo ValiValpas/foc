@@ -40,14 +40,14 @@ IMPLEMENT inline
 Pdir *Kmem::dir()
 { return _kdir; }
 
-IMPLEMENT inline
-Mword *Kmem::kernel_sp()
-{ return _sp;}
-
-IMPLEMENT inline
-void Kmem::kernel_sp(Mword *sp)
-{ _sp = sp; }
-
+//IMPLEMENT inline
+//Mword *Kmem::kernel_sp()
+//{ return _sp;}
+//
+//IMPLEMENT inline
+//void Kmem::kernel_sp(Mword *sp)
+//{ _sp = sp; }
+//
 IMPLEMENT inline NEEDS["paging.h"]
 Address Kmem::virt_to_phys(const void *addr)
 {

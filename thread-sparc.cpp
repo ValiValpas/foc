@@ -72,10 +72,6 @@ Thread::user_invoke()
 
   ksp = (Mword*)current()->regs();
 
-  printf("\n[%lx]leaving kernel ip %lx sp %lx\n",
-         current_thread()->dbg_id(), r->ip(), r->sp());
-  printf("kernel_sp %p kip %p\n", ksp, kip);
-
 
   Proc::stack_pointer(r->sp());
 
@@ -146,10 +142,6 @@ extern "C" {
         Proc::sti();
       }
 
-    printf("Page fault at %08lx (%s) from %08lx\n", pfa, PF::is_read_error(error_code)?"ro":"rw", pc);
-    printf("FT %lx, AT %lx\n",
-           (error_code & Fsr::Fault_type_mask) >> Fsr::Fault_type,
-           (error_code & Fsr::Access_type_mask) >> Fsr::Access_type);
 
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
     if (!ret)
