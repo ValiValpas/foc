@@ -316,7 +316,7 @@
     restore
       ! don't restore if sp=0
 
-      RESTORE_FRAME(\scratch_sp)
+      RESTORE_FRAME(sp)
 93:   b	99f
     save
 
