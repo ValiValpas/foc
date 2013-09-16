@@ -81,7 +81,7 @@ Thread::user_invoke()
   (
     "mov %[psr], %%psr\n"
     // pipeline flush takes 6 instructions
-    "nop; nop; nop;\n"
+    "nop; nop;\n"
     "mov %[kip], %%o0 \n"
     "jmp %[ret]       \n"
     "nop              \n"
