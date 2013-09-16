@@ -204,8 +204,6 @@ void irq_handler(Mword psr, Mword pc, Mword npc, Mword level)
 
   // TODO should we manually look for more pending interrupts here?
 //  mgr->c.handle_multi_pending<Chip>(0);
-
-  printf("IRQ #%d handled\n", (int)level);
 }
 
 //-------------------------------------------------------------------------------

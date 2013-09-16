@@ -105,8 +105,8 @@ Timer::init(Cpu_number)
   Unsigned32 tmr1_config = (1 << Enable_bit) | (1 << Restart_bit) | (1 << Irq_enable_bit) | (1 << Load_bit) | (1 << Irq_pending_bit);
   Proc::write_alternative<Mmu::Bypass>(timer_control(1), tmr1_config);
 
-  // dump timer configuration
-  dump();
+//  // dump timer configuration
+//  dump();
 }
 
 PUBLIC static inline
