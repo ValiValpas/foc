@@ -139,7 +139,8 @@ extern "C" {
           return 1;
 
         current_thread()->state_del(Thread_cancel);
-        Proc::sti();
+        // DON'T enable interrupts here because we currently don't support nested traps
+//        Proc::sti();
       }
 
 
