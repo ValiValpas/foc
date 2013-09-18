@@ -49,7 +49,7 @@
   and %scratch, 0x1F, %scratch; \
   or  %scratch, %from, %scratch; \
   mov %scratch, %psr; \
-  nop; nop; nop; nop; 
+  nop; nop; nop;
 
 #define STORE_GLOBALS(base_reg, scratch) \
   rd  %y, %scratch;                \
@@ -841,10 +841,10 @@ syscall_entry:
   ! restore from exception context (restore globals and entry frame)
   exception_exit l6 l5 1 1
 
+  FLUSH_DCACHE()
+
   ! return
   RESTORE_PSR(t_psr, l6)
-
-  FLUSH_DCACHE()
 
   ! remark: t_npc is now actually the initial value of i7
   jmpl %t_npc, %g0
