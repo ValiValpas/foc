@@ -31,7 +31,7 @@ public:
     Scheduler_one_shot		= 0,
     Scheduler_granularity	= 1000UL,
     Default_time_slice	        = 10 * Scheduler_granularity,
-    System_clock          = 40000000, // 40 MHz
+    System_clock          = CONFIG_SPARC_CPU_MHZ * 1000000, // 40 MHz
     Timer_prescale_hz     =  1000000, // 1 MHz
   };
 
