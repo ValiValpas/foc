@@ -94,6 +94,7 @@ int main()
      " mov %[stack], %%sp         \n" //new stack
      " mov %[kernel],%%o0         \n" //"this" pointer
 		 " call call_bootstrap        \n"
+     " nop                        \n"
 		 :
 		 : [stack]"r" (sp),
 		   [kernel]"r" (kernel)
