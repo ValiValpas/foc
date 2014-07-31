@@ -19,7 +19,19 @@ Sys_call_page::init()
                               Vmem_alloc::NO_ZERO_FILL, Vmem_alloc::User))
     panic("FIASCO: can't allocate system-call page.\n");
 
-  for (unsigned i = 0; i < Config::PAGE_SIZE - 10*sizeof(Mword); i += sizeof(Mword))
+  // user invoke code (see thread-sparc.cpp)
+  *(sys_calls++) = 0x818bc000; // wrpsr %o7
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x81c04000; // jmp %g1
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+  *(sys_calls++) = 0x01000000; // nop
+
+  for (unsigned i = 10*sizeof(Mword); i < Config::PAGE_SIZE - 10*sizeof(Mword); i += sizeof(Mword))
     *(sys_calls++) = 0x91d02000; // ta 0
 
   // write 10 entries that will be resolved by the sys_call_table

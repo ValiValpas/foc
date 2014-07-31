@@ -77,18 +77,30 @@ Thread::user_invoke()
 
   // restore psr
   Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap) | (Psr::read() & ~Psr::Usr_ret_mask);
+
+  // As the delay of a write operation to psr is implementation-dependent, we 
+  // do this in the syscall page because this is mapped executable in user space.
+  // The code in the syscall page is the following:
+  //  wrpsr %o7
+  //  nop
+  //  nop
+  //  nop
+  //  jmp %g1
+  //  nop
+
+  // 
   asm volatile
   (
-    "mov %[psr], %%psr\n"
-    // pipeline flush takes 6 instructions
-    "nop; nop;\n"
+    "mov %[psr], %%o7\n"
     "mov %[kip], %%o0 \n"
-    "jmp %[ret]       \n"
-    "nop              \n"
+    "mov %[ret], %%g1 \n"
+    "jmp %[sc]        \n"
+	 "nop              \n"
     :
     : [ret] "r" (r->ip()),
       [psr] "r" (psr),
-      [kip] "r" (kip)
+      [kip] "r" (kip),
+		[sc]  "r" (Mem_layout::Syscalls)
     :
   );
 
@@ -147,6 +159,7 @@ extern "C" {
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
     if (!ret)
     {
+		printf("pfa=0x%08lx pc=0x%08lx\n", pfa, pc);
       panic("Couldn't resolve page fault!\n");
     }
 
