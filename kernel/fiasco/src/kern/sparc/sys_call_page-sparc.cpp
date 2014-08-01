@@ -48,6 +48,5 @@ Sys_call_page::init()
 
   Kernel_task::kernel_task()
     ->set_attributes(Virt_addr(Mem_layout::Syscalls),
-	             Page::Attr(Page::Rights::URX(), Page::Type::Normal(),
-		                Page::Kern::Global()));
+	             Page::USER_RX | Page::CACHEABLE);
 }

@@ -20,6 +20,18 @@ namespace Ptab
     typedef _Tail Tail;
   };
 
+  template< typename ...T >
+  struct Tupel;
+
+  template< typename T >
+  struct Tupel<T>;
+
+  template< typename H, typename T >
+  struct Tupel<H, T> { typedef Ptab::List<H, T> List; };
+
+  template<typename T1, typename T2, typename T3, typename ...X>
+  struct Tupel<T1, T2, T3, X...>
+  { typedef Ptab::List<T1, typename Tupel<T2, T3, X...>::List > List; };
 
   template< typename _T, unsigned _Level >
   class Level

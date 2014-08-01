@@ -37,9 +37,9 @@ Timer::system_clock()
 
 IMPLEMENT inline NEEDS ["config.h", "kip.h", "watchdog.h"]
 void
-Timer::update_system_clock(Cpu_number cpu)
+Timer::update_system_clock(unsigned cpu)
 {
-  if (cpu == Cpu_number::boot_cpu())
+  if (cpu == 0)
     {
       Kip::k()->clock += Config::Scheduler_granularity;
       // FIXME do we need to invalidate the data cache?

@@ -198,6 +198,7 @@ public:
   Virt_addr() {}
 };
 
+typedef Page_addr<ARCH_PAGE_SHIFT> Phys_addr;
 typedef Page_addr<ARCH_PAGE_SHIFT> Virt_size;
 
 typedef Page_addr<0> Page_number;

@@ -100,7 +100,6 @@ class Chip : public Irq_chip_gen
 public:
   Chip() : Irq_chip_gen(Pic::Irq_max) {}
   unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
-  void set_cpu(Mword, unsigned) {}
 };
 
 PUBLIC
@@ -142,7 +141,7 @@ Chip::unmask(Mword pin)
 
 PUBLIC
 void
-Chip::set_cpu(Mword irq, Cpu_number cpu)
+Chip::set_cpu(Mword irq, unsigned cpu)
 {
   // TODO mask 'irq' for all but 'cpu'?
   (void)irq;

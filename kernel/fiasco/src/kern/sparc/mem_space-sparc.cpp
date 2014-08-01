@@ -34,10 +34,10 @@ public:
       /// it's a user page.
       Page_user_accessible = 0, // XXX
       /// Page has been referenced
-      Page_referenced = Pt_entry::Referenced,
+      Page_referenced = Pte_base::Referenced,
       /// Page is dirty
-      Page_dirty = Pt_entry::Modified,
-      Page_references = Pt_entry::Referenced| Page_dirty,
+      Page_dirty = Pte_base::Modified,
+      Page_references = Pte_base::Referenced| Page_dirty,
       /// A mask which contains all mask bits
       Page_all_attribs = Page_writable | Page_noncacheable |
 			 Page_user_accessible | Page_referenced | Page_dirty,
@@ -167,8 +167,7 @@ Mem_space::sync_kernel()
 {
   _dir->sync(Virt_addr(Mem_layout::User_max), kernel_space()->_dir,
              Virt_addr(Mem_layout::User_max),
-             Virt_size(-Mem_layout::User_max), Pdir::Super_level,
-             Pte_base::need_cache_write_back(this == _current.current()),
+             Virt_addr(-Mem_layout::User_max), Pdir::Super_level,
              Kmem_alloc::q_allocator(_quota));
 }
 
@@ -238,10 +237,10 @@ Mem_space::set_attributes(Virt_addr virt, unsigned page_attribs)
 {
   auto i = _dir->walk(virt);
 
-  if (!i.is_valid())
+  if (!i.e->is_valid())
     return false;
 
-  i.set_attribs(page_attribs);
+  i.e->set_attribs(page_attribs);
   // TODO flush tlb?
   return true;
 }
@@ -303,37 +302,36 @@ Mem_space::Status
 Mem_space::v_insert(Phys_addr phys, Vaddr virt, Vsize size,
 		    unsigned page_attribs, bool /*upgrade_ignore_size*/)
 {
-  bool const flush = _current.current() == this;
-  assert (cxx::get_lsb(Phys_addr(phys), size) == 0);
-  assert (cxx::get_lsb(Virt_addr(virt), size) == 0);
+//  bool const flush = _current.current() == this;
+  assert (phys.offset(size) == 0);
+  assert (virt.offset(size) == 0);
 
   int level;
-  for (level = 0; level <= Pdir::Depth; ++level)
-    if (Page_order(Pdir::page_order_for_level(level)) <= size)
+  for (level = 0; level <= Pdir::Depth; ++level) {
+    Vsize page_size(1 << Pte_base::page_order_for_level(level));
+    if (page_size <= size)
       break;
+  }
 
-  auto i = _dir->walk(virt, level, Pte_base::need_cache_write_back(flush),
-                      Kmem_alloc::q_allocator(_quota));
+  auto i = _dir->walk(virt, level, Kmem_alloc::q_allocator(_quota));
 
-  if (EXPECT_FALSE(!i.is_valid() && i.level != level))
+  if (EXPECT_FALSE(!i.e->is_valid() && i.e->level != level))
     return Insert_err_nomem;
 
-  if (EXPECT_FALSE(i.is_valid()
-                   && (i.level != level || Phys_addr(i.page_addr()) != phys)))
+  if (EXPECT_FALSE(i.e->is_valid()
+                   && (i.e->level != level || Phys_addr(i.e->page_addr()) != phys)))
     return Insert_err_exists;
 
-  if (i.is_valid())
+  if (i.e->is_valid())
     {
-      if (EXPECT_FALSE(!i.add_attribs(page_attribs)))
+      if (EXPECT_FALSE(!i.e->add_attribs(page_attribs)))
         return Insert_warn_exists;
 
-      i.write_back_if(flush, 0);
       return Insert_warn_attrib_upgrade;
     }
   else
     {
-      i.create_page(phys, page_attribs);
-      i.write_back_if(flush, 0);
+      i.e->create_page(phys, page_attribs);
 
       return Insert_ok;
     }
@@ -390,13 +388,13 @@ Mem_space::v_lookup(Vaddr virt, Phys_addr *phys = 0, Size *size = 0,
 		    unsigned *page_attribs = 0)
 {
   auto i = _dir->walk(virt);
-  if (order) *order = Page_order(i.page_order());
 
-  if (!i.is_valid())
+  if (!i.e->is_valid())
     return false;
 
-  if (phys) *phys = Phys_addr(i.page_addr());
-  if (page_attribs) *page_attribs = i.attribs();
+  if (phys) *phys = Phys_addr(i.e->page_addr());
+  if (page_attribs) *page_attribs = i.e->attribs();
+  if (size) *size = Size(1 << i.e->page_order());
 
   return true;
 }
@@ -415,22 +413,20 @@ unsigned long
 Mem_space::v_delete(Vaddr virt, Vsize size,
 		    unsigned long page_attribs = Page_all_attribs)
 {
-  (void) size;
-  assert (cxx::get_lsb(Virt_addr(virt), size) == 0);
+  assert (virt.offset(size) == 0);
   auto i = _dir->walk(virt);
 
-  if (EXPECT_FALSE (! i.is_valid()))
+  if (EXPECT_FALSE (! i.e->is_valid()))
     return L4_fpage::Rights(0);
 
-  L4_fpage::Rights ret = i.access_flags();
+  Page::Attribs ret = i.e->access_flags();
 
-  if (! (page_attribs & L4_fpage::Rights::R()))
-    i.del_rights(page_attribs);
+  if (page_attribs)
+    i.e->del_rights(page_attribs);
   else
-    i.clear();
+    i.e->clear();
 
-  i.write_back_if(_current.current() == this, 0);
-
+  // FIXME return value
   return ret;
 }
 
@@ -438,18 +434,3 @@ PUBLIC static inline
 Page_number
 Mem_space::canonize(Page_number v)
 { return v; }
-
-IMPLEMENT inline
-void
-Mem_space::v_set_access_flags(Vaddr, L4_fpage::Rights)
-{}
-
-PUBLIC static
-void
-Mem_space::init_page_sizes()
-{
-  add_page_size(Page_order(Config::PAGE_SHIFT));
-  add_page_size(Page_order(18)); // 256K
-  add_page_size(Page_order(24)); // 16MB
-  add_page_size(Page_order(32)); // 4G
-}

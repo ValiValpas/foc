@@ -22,20 +22,32 @@ typedef signed long long int   Signed64;
 /// machine word
 typedef signed long int        Smword;
 typedef unsigned long int      Mword;
+typedef unsigned long long int Dword;
 
 enum {
   MWORD_BITS = 32,
-  ARCH_PAGE_SHIFT = 12, // XXX
+  ARCH_PAGE_SHIFT = 12,
 };
 
-/// (virtual or physical address) should be addr_t or something
+/// virtual address
 typedef unsigned long int      Address;
+/// physical address
+typedef unsigned long long int Paddress;
+
 enum Address_vals
 #ifdef __cplusplus
 : Address
 #endif
 {
   Invalid_address = ~0UL
+};
+
+enum Paddress_vals
+#ifdef __cplusplus
+: Paddress
+#endif
+{
+  Invalid_paddress = ~0ULL
 };
 
 typedef Unsigned64 Cpu_time;

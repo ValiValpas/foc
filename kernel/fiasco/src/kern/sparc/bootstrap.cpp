@@ -34,14 +34,14 @@ inline Mword
 pt_entry(Phys_addr pa, bool cache)
 {
   Mword res = cxx::int_value<Phys_addr>(cxx::mask_lsb(pa, map_page_order()));
-  res = res >> Pte_ptr::Ptp_addr_shift;
+  res = res >> Pte_base::Ptp_addr_shift;
 
   if (cache)
-    res |= Pte_ptr::Cacheable;
+    res |= Pte_base::Cacheable;
 
-  res |= Pte_ptr::Accperm_NO_RWX << Pte_ptr::Accperm_shift;
+  res |= Pte_base::Accperm_NO_RWX << Pte_base::Accperm_shift;
 
-  res |= Pte_ptr::ET_pte;
+  res |= Pte_base::ET_pte;
   return res;
 }
 
@@ -95,8 +95,8 @@ void bootstrap_main()
   Mem_unit::context(0);
 
   /* add context table entry for 1st-level PD */
-  Mword shifted = (Mword)page_dir_phys >> Pte_ptr::Ptp_addr_shift;
-  context_table_phys[0] = shifted | Pte_ptr::ET_ptd;
+  Mword shifted = (Mword)page_dir_phys >> Pte_base::Ptp_addr_shift;
+  context_table_phys[0] = shifted | Pte_base::ET_ptd;
 
   Virt_addr va;
   Phys_addr pa;

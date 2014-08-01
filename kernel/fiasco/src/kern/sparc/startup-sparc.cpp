@@ -35,7 +35,6 @@ Startup::stage2()
   puts("Hello from Startup::stage2");
 
   Kip_init::init();
-  Mem_space::init_page_sizes();
   //init buddy allocator
   Kmem_alloc::init();
 

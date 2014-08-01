@@ -10,11 +10,12 @@ EXTENSION class Mem_layout
 
 //TODO cbass: check what can be omitted
 public:
-  enum Phys_layout {
+  enum Phys_layout : Address
+  {
     Ram_phys_base        = 0x40000000,   // TODO make this configurable (platform specific)
   };
 
-  enum Virt_layout
+  enum Virt_layout : Address
   {
     // unmapped addresses
     Utcb_ptr_page        = 0xffffc000,
@@ -63,7 +64,7 @@ IMPLEMENTATION [sparc]:
 
 PUBLIC static
 Address
-Mem_layout::phys_to_pmem (Address addr)
+Mem_layout::phys_to_pmem (Paddress addr)
 {
   // TODO move kernel_srmmu_l1 to mem_layout (cp arm/mem_layout-noncont.cpp)
   extern Mword kernel_srmmu_l1[256];
@@ -86,7 +87,7 @@ Mem_layout::phys_to_pmem (Address addr)
 }
 
 PUBLIC static inline
-Address
+Paddress
 Mem_layout::pmem_to_phys (Address addr)
 {
   // FIXME implement PT walk
@@ -95,7 +96,7 @@ Mem_layout::pmem_to_phys (Address addr)
 }
 
 PUBLIC static inline
-Address
+Paddress
 Mem_layout::pmem_to_phys (const void *ptr)
 {
   return pmem_to_phys(reinterpret_cast<Address>(ptr));

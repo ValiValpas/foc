@@ -67,23 +67,30 @@ INTERFACE[sparc]:
 #include "kdb_ke.h"
 #include "mem_unit.h"
 
-//#define THIS_NEEDS_ADAPTION
-//#define THIS_NEED_ADAPTION
-
-//EXTENSION class Page                                                                                                                                             
-//{                                                                                                                                                                
-//public:                                                                                                                                                          
-//  enum Attribs_enum                                                                                                                                              
-//  {                                                                                                                                                              
-//    MAX_ATTRIBS   = 0x00000006,                                                                                                                                  
-//    Cache_mask    = 0x00000018, ///< Cache attrbute mask                                                                                                         
-//    CACHEABLE     = 0x00000080,                                                                                                                                  
-//    BUFFERED      = 0x00000010,                                                                                                                                  
-//    NONCACHEABLE  = 0x00000018,                                                                                                                                  
-//  };                                                                                                                                                             
-//};
 
 class Paging {};
+
+
+namespace Page
+{
+  typedef Unsigned32 Attribs;
+  enum Attribs_enum
+  {
+    USER_RO  = 0x00000000, ///< User Read only
+    USER_RW  = 0x00000001, ///< User Read/Write
+    USER_RX  = 0x00000002, ///< User Read/Execute
+    USER_RWX = 0x00000003, ///< User Read/Write/Execute
+    USER_XO  = 0x00000004, ///< User Execute only
+	 KERN_RX  = 0x00000006,
+	 KERN_RWX = 0x00000007,
+    USER_NO  = 0x00000007, ///< User No access
+
+    NONCACHEABLE = 0x00000000, ///< Caching is off
+    CACHEABLE    = 0x00000080, ///< Cache is enabled
+    BUFFERED     = 0x00000080, ///< Cache is enabled
+    Cache_mask   = 0x00000080, ///< Cacheable bit
+  };
+};
 
 /**
  * @remark: SRMMU uses 36-bit physical addresses
@@ -97,6 +104,7 @@ public:
   Pte_base(void *p, unsigned char level) : pte((Mword*)p), level(level) {}
 
   bool is_valid() const { return *pte & Valid; }
+  bool valid() const { return is_valid(); }
 
   void clear() { *pte = 0; }
 
@@ -130,9 +138,22 @@ public:
     set_next_level(phys);
   }
 
+  Address addr() const {
+	  if (is_leaf())
+		  return page_addr();
+	  else
+		  return next_level();
+  }
+
   unsigned char page_order() const
   {
-    switch (level)
+	  return page_order_for_level(level);
+  }
+
+  static
+  unsigned char page_order_for_level(unsigned lvl)
+  {
+    switch (lvl)
     {
       // context table would be level -1
       case 0:
@@ -153,6 +174,11 @@ public:
     Dword paddr = (*pte & Ppn_mask) << Ppn_addr_shift;
     return cxx::mask_lsb(paddr, page_order());
   }
+
+	static inline
+	bool
+	need_cache_write_back(bool current_pt)
+	{ return true; /*current_pt;*/ (void)current_pt; }
 
   enum
   {
@@ -191,29 +217,32 @@ public:
     Valid          = 0x3,        ///< ET field mask
   };
 
-namespace Page
-{
-  typedef Unsigned32 Attribs;
-  enum Attribs_enum
-  {
-    KERN_RW      = 0x00000000,
-    USER_RO      = 0x00000001,
-    USER_RW      = 0x00000002,
-    Cache_mask   = 0x00000078,
-    CACHEABLE    = 0x00000000,
-    NONCACHEABLE = 0x00000040,
-    BUFFERED     = 0x00000080, //XXX not sure
-  };
-};
-
   Mword *pte;
   unsigned char level;
 
 };
 
-typedef Ptab::Tupel< Ptab::Traits<Unsigned32, 24, 8, true>,
-                     Ptab::Traits<Unsigned32, 18, 6, true>,
-                     Ptab::Traits<Unsigned32, 12, 6, true> >::List Ptab_traits;
+template<unsigned SHIFT, unsigned LVL>
+class Pt_entry : public Pte_base
+{
+public:
+  typedef Mword Raw;
+  enum { Page_shift = SHIFT };
+  Mword leaf() const { return is_leaf(); }
+  Mword raw() const { return access_once(pte); }
+  Pt_entry() { Pte_base::level = LVL; }
+  void set(Address p, bool intermed, bool, unsigned long attrs = 0)
+  {
+	  if (intermed)
+		  set_next_level(p);
+	  else
+		  create_page(Phys_addr(p), attrs);
+  }
+};
+
+typedef Ptab::Tupel< Ptab::Traits<Pt_entry<24, 0>, 24, 8, true>,
+                     Ptab::Traits<Pt_entry<24, 1>, 18, 6, true>,
+                     Ptab::Traits<Pt_entry<24, 2>, 12, 6, true> >::List Ptab_traits;
 
 typedef Ptab::Shift<Ptab_traits, Virt_addr::Shift>::List Ptab_traits_vpn;
 typedef Ptab::Page_addr_wrap<Page_number, Virt_addr::Shift> Ptab_va_vpn;
@@ -226,239 +255,147 @@ IMPLEMENTATION[sparc]:
 #include "cpu_lock.h"
 #include "kip.h"
 
-PRIVATE inline
-Mword
-Pte_base::_attribs(Page::Attr attr) const
-{
-  static const unsigned short perms[] = {
-      Accperm_NO_RX  << Accperm_shift, // 0000: none, hmmm
-      Accperm_NO_RX  << Accperm_shift, // 000X: kernel rx
-      Accperm_NO_RWX << Accperm_shift, // 00W0: kernel rwx (no rw)
-      Accperm_NO_RWX << Accperm_shift, // 00WX: kernel rwx
 
-      Accperm_NO_RX  << Accperm_shift, // 0R00: kernel rx (no ro)
-      Accperm_NO_RX  << Accperm_shift, // 0R0X:
-      Accperm_NO_RWX << Accperm_shift, // 0RW0: kernel rwx (no rw)
-      Accperm_NO_RWX << Accperm_shift, // 0RWX:
-
-      Accperm_NO_RX  << Accperm_shift, // U000:
-      Accperm_XO     << Accperm_shift, // U00X: 
-      Accperm_RW     << Accperm_shift, // U0W0:
-      Accperm_RWX    << Accperm_shift, // U0WX:
-
-      Accperm_RO     << Accperm_shift, // UR00:
-      Accperm_RX     << Accperm_shift, // UR0X: 
-      Accperm_RW     << Accperm_shift, // URW0:
-      Accperm_RWX    << Accperm_shift  // URWX:
-  };
-
-  typedef Page::Type T;
-  Mword r = 0;
-  if (attr.type == T::Normal())   r |= Cacheable;
-  if (attr.type == T::Uncached()) r &= ~Cacheable;
-
-  return r | perms[cxx::int_value<L4_fpage::Rights>(attr.rights)];
-}
 
 PUBLIC inline
-Page::Attr
-Pte_base::attribs() const
-{
-  auto r = access_once(pte);
-  auto c = r & Cacheable;
-  r = (r & Accperm_mask) >> Accperm_shift;
-
-  typedef L4_fpage::Rights R;
-  typedef Page::Type T;
-
-  R rights;
-  switch (r)
-    {
-    case Accperm_RO:     rights = R::UR();           break;
-    case Accperm_RX:     rights = R::URX();          break;
-    case Accperm_RW:     rights = R::URW();          break;
-    case Accperm_RWX:    rights = R::URWX();         break;
-    case Accperm_NO_RX:  rights = R::RX();           break;
-    case Accperm_NO_RWX: rights = R::RWX();          break;
-    case Accperm_RO_RW:  rights = R::UR();           break;
-    case Accperm_XO:     rights = R::U() | R::X();   break;
-    }
-
-  T type;
-  switch (c)
-    {
-    case Cacheable: type = T::Normal();   break;
-    default:        type = T::Uncached(); break;
-    }
-
-  return Page::Attr(rights, type);
-}
-
-PUBLIC inline NEEDS[Pte_base::_attribs]
 void
-Pte_base::set_attribs(Page::Attr attr)
+Pte_base::set_attribs(Page::Attribs attr)
 {
   Mword p    = access_once(pte);
   Mword mask = ~(Accperm_mask | Cacheable);
-  p = (p & mask) | _attribs(attr);
+  p = (p & mask) | attr;
   write_now(pte, p);
 }
 
-PUBLIC inline NEEDS[Pte_base::_attribs]
+PUBLIC inline
 void
-Pte_base::create_page(Phys_mem_addr addr, Page::Attr attr)
+Pte_base::create_page(Phys_addr addr, Page::Attribs attr)
 {
-  Dword paddr = cxx::int_value<Phys_mem_addr>(addr);
-  assert(cxx::get_lsb(paddr, page_order()) == 0);
-  Mword p = ET_pte | _attribs(attr) | (Mword)(paddr >> Ptp_addr_shift);
+  assert(addr.offset(Phys_addr(1 << page_order())) == 0);
+  Mword p = ET_pte | attr | (Mword)(addr >> Ptp_addr_shift).value();
   write_now(pte, p);
 }
 
-PUBLIC inline NEEDS[Pte_base::_attribs]
+PUBLIC inline
 bool
-Pte_base::add_attribs(Page::Attr attr)
+Pte_base::add_attribs(Page::Attribs attr)
 {
-  typedef L4_fpage::Rights R;
 
   auto p = access_once(pte);
   auto o = (p & Accperm_mask) >> Accperm_shift;
-  R r(attr.rights);
+  auto r = attr & 0x7;
 
-  // make sure we don't remove rights
-  switch (o)
-  {
-    case Accperm_RO:
-      if (r == R::RW())
-        o = Accperm_RO_RW;
-      else if ((r & R::W()) && (r & R::X()))
-        o = Accperm_RWX;
-      else if (r & R::W())
-        o = Accperm_RW;
-      else if (r & R::X())
-        o = Accperm_RX;
-      else
-        return false;
-      break;
-    case Accperm_RW:
-      if (r & R::X())
-        o = Accperm_RWX;
-      else
-        return false;
-      break;
-    case Accperm_RX:
-      if (r & R::W())
-        o = Accperm_RWX;
-      else
-        return false;
-      break;
-    case Accperm_RWX:
-      return false;
-    case Accperm_XO:
-      if (r & R::W())
-        o = Accperm_RWX;
-      else if (r & R::R())
-        o = Accperm_RX;
-      else
-        return false;
-      break;
-    case Accperm_RO_RW:
-      if (r & R::X())
-        o = Accperm_RWX;
-      else if ((r & R::U()) && (r & R::W()))
-        o = Accperm_RW;
-      else
-        return false;
-      break;
-    case Accperm_NO_RX:
-      if (r & R::U()) {
-        if (r & R::W())
-          o = Accperm_RWX;
-        else if (r & R::X())
-          o = Accperm_RX;
-        else
-          return false;
-      }
-      else if (r & R::W())
-        o = Accperm_NO_RWX;
-      else
-        return false;
-      break;
-    case Accperm_NO_RWX:
-      if (r & R::U()) {
-        if (r & R::RWX())
-          o = Accperm_RWX;
-        else
-          return false;
-      }
-      else
-        return false;
-      break;
+  if (o != r) {
+	  // make sure we don't remove rights
+	  switch (o)
+	  {
+		 case Accperm_RO: /* USER_RO */
+			if (r == Page::USER_RW || r == Page::USER_RWX || r == Page::USER_RX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_RW: /* USER_RW */
+			if (r == Page::USER_RWX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_RX: /* USER_RX */
+			if (r == Page::USER_RWX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_RWX:
+			return false;
+		 case Accperm_XO: /* USER_XO */
+			if (r == Page::USER_RWX || r == Page::USER_RX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_RO_RW:
+			if (r == Page::KERN_RWX || r == Page::USER_RW || r == Page::USER_RWX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_NO_RX: /* KERN_RX */
+			if (r == Page::KERN_RWX || r == Page::USER_RX || r == Page::USER_RWX)
+				o = r;
+			else
+			  return false;
+			break;
+		 case Accperm_NO_RWX: /* KERN_RWX */
+			if (r == Page::USER_RWX)
+				o = r;
+			else
+			  return false;
+			break;
+	  }
+
+	  p = (p & ~Accperm_mask) | (o << Accperm_shift);
+	  write_now(pte, p);
   }
-
-  p = (p & ~Accperm_mask) | (o << Accperm_shift);
-  write_now(pte, p);
   return true;
 }
 
 PUBLIC inline
-Page::Rights
+Page::Attribs
 Pte_base::access_flags() const
-{ return Page::Rights(0); } // FIXME sparc: Pte_ptr::access_flags()
+{ return (access_once(pte) & Accperm_mask) >> Accperm_shift; }
+
+PUBLIC inline
+Page::Attribs
+Pte_base::attribs() const
+{ return access_flags() | (access_once(pte) & Cacheable); }
 
 PUBLIC inline
 void
-Pte_base::del_rights(L4_fpage::Rights r)
+Pte_base::del_rights(Page::Attribs attr)
 {
-  typedef L4_fpage::Rights R;
-
   auto p = access_once(pte);
   auto o = (p & Accperm_mask) >> Accperm_shift;
+  auto r = attr & 0x7;
 
   switch (o)
   {
     case Accperm_RO: // can't remove anything
       return;
-    case Accperm_RX:
-      if (r & R::R())
-        o = Accperm_XO;
-      else if (r & R::X())
-        o = Accperm_RO;
+    case Accperm_RX: /* USER_RX */
+		if (r == Page::USER_RO || r == Page::USER_XO)
+			o = r;
       else
         return;
       break;
-    case Accperm_RW:
-      if (r & R::W())
-        o = Accperm_RO;
+    case Accperm_RW: /* USER_RW */
+		if (r == Page::USER_RO)
+			o = r;
       else
         return;
       break;
-    case Accperm_RWX:
-      if (r & R::W()) {
-        if (r & R::X())
-          o = Accperm_RO;
-        else if (r & R::R())
-          o = Accperm_XO;
-        else
-          o = Accperm_RX;
-      }
-      else if (r & R::X())
-        o = Accperm_RW;
+    case Accperm_RWX: /* USER_RWX */
+		if (r == Page::USER_RX || r == Page::USER_RO || r == Page::USER_RW || r == Page::KERN_RWX || r == Page::KERN_RX || r == Page::USER_XO)
+			o = r;
       else
         return;
       break;
-    case Accperm_XO: // can't remove anything
+    case Accperm_XO:
+		if (r == Page::KERN_RX)
+			o = r;
       return;
     case Accperm_RO_RW:
-      if (r & R::W())
-        o = Accperm_RO;
+		if (r == Page::USER_RO)
+			o = r;
       else
         return;
       break;
     case Accperm_NO_RX: // can't remove anything
       return;
     case Accperm_NO_RWX:
-      if (r & R::W())
-        o = Accperm_NO_RX;
+		if (r == Page::KERN_RX)
+			o = r;
       else
         return;
       break;
@@ -517,115 +454,65 @@ Mword PF::addr_to_msgword0(Address pfa, Mword error)
 
 //---------------------------------------------------------------------------
 
-PUBLIC
-Pte_base::Pte_base(Mword raw) : _raw(raw) {}
-
-PUBLIC
-Pte_base::Pte_base() {}
-
-PUBLIC inline
-Pte_base &
-Pte_base::operator = (Pte_base const &other)
-{
-  _raw = other.raw();
-  return *this;
-}
-
-PUBLIC inline
-Pte_base &
-Pte_base::operator = (Mword raw)
-{
-  _raw = raw;
-  return *this;
-}
-
-PUBLIC inline
-Mword
-Pte_base::raw() const
-{
-  return _raw;
-}
-
-PUBLIC inline
-void
-Pte_base::add_attr(Mword attr)
-{
-  _raw |= attr;
-}
-
-PUBLIC inline
-void
-Pte_base::del_attr(Mword attr)
-{
-  _raw &= ~attr;
-}
-
-PUBLIC inline
-void
-Pte_base::clear()
-{ _raw = 0; }
-
-PUBLIC inline
-int
-Pte_base::valid() const
-{
-  return _raw & Valid;
-}
-
-PUBLIC inline
-int
-Pte_base::writable() const
-{
-  Mword acc = ((_raw >> Accperm_shift) & Accperm_mask);
-  return (acc=1); // XXX (3 and 5 can also be valid, depending on access mode)
-}
-
-PUBLIC inline
-Address
-Pt_entry::pfn() const
-{
-  return _raw & Ppn_mask;
-}
-
-PUBLIC static inline
-Mword
-Pte_base::pdir(Address a)
-{
-  return (a & (Pdir_mask << Pdir_shift)) >> Pdir_shift;
-}
-
-
-PUBLIC static inline
-Mword
-Pte_base::ptab1(Address a)
-{
-  return (a & (Ptab_mask << Ptab_shift1)) >> Ptab_shift1;
-}
-
-
-PUBLIC static inline
-Mword
-Pte_base::ptab2(Address a)
-{
-  return (a & (Ptab_mask << Ptab_shift2)) >> Ptab_shift2;
-}
-
-
-PUBLIC static inline
-Mword
-Pte_base::offset(Address a)
-{
-  return a & Page_offset_mask;
-}
-
-PUBLIC static inline
-void
-Paging::split_address(Address a)
-{
-  printf("%lx -> %lx : %lx : %lx : %lx\n", a,
-         Pte_base::pdir(a),  Pte_base::ptab1(a),
-         Pte_base::ptab2(a), Pte_base::offset(a));
-}
+//PUBLIC inline
+//void
+//Pte_base::clear()
+//{ _raw = 0; }
+//
+//PUBLIC inline
+//int
+//Pte_base::valid() const
+//{
+//  return _raw & Valid;
+//}
+//
+//PUBLIC inline
+//int
+//Pte_base::writable() const
+//{
+//  Mword acc = ((_raw >> Accperm_shift) & Accperm_mask);
+//  return (acc=1); // XXX (3 and 5 can also be valid, depending on access mode)
+//}
+//
+//PUBLIC static inline
+//Mword
+//Pte_base::pdir(Address a)
+//{
+//  return (a & (Pdir_mask << Pdir_shift)) >> Pdir_shift;
+//}
+//
+//
+//PUBLIC static inline
+//Mword
+//Pte_base::ptab1(Address a)
+//{
+//  return (a & (Ptab_mask << Ptab_shift1)) >> Ptab_shift1;
+//}
+//
+//
+//PUBLIC static inline
+//Mword
+//Pte_base::ptab2(Address a)
+//{
+//  return (a & (Ptab_mask << Ptab_shift2)) >> Ptab_shift2;
+//}
+//
+//
+//PUBLIC static inline
+//Mword
+//Pte_base::offset(Address a)
+//{
+//  return a & Page_offset_mask;
+//}
+//
+//PUBLIC static inline
+//void
+//Paging::split_address(Address a)
+//{
+//  printf("%lx -> %lx : %lx : %lx : %lx\n", a,
+//         Pte_base::pdir(a),  Pte_base::ptab1(a),
+//         Pte_base::ptab2(a), Pte_base::offset(a));
+//}
 
 Mword context_table[16];
 // FIXME move kernel_srmmu_l1 somewhere sensible (or alloc from kmem_alloc?)

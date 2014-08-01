@@ -50,6 +50,7 @@ config SPARC
 	  SPARC v8 is supposed to run on the LEON3 platform.
 	  It is unsupported at the moment.
 	select CONTEXT_4K
+  select BIG_ENDIAN
 
 
 endchoice
@@ -410,6 +411,15 @@ config ARM_1176_CACHE_ALIAS_FIX
 config ARM_CPU_ERRATA
         bool "Enable CPU errata workarounds"
         depends on ARM && !ARM_TZ
+
+config SPARC_CPU_MHZ
+  int "Set the CPU clock frequency"
+  range 1 400
+  default 40
+  depends on SPARC
+  help
+    Hard code the CPU clock frequency since there is no way to figure this
+    out during run time
 
 endmenu # target
 

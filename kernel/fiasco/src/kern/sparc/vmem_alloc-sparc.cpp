@@ -29,20 +29,21 @@ void *Vmem_alloc::page_alloc(void * address, Zero_fill zf, unsigned mode)
 
   // insert page into master page table
   auto pte = Mem_space::kernel_space()->dir()->walk(Virt_addr(address),
-      Pdir::Depth, true, Kmem_alloc::q_allocator(Ram_quota::root));
+      Pdir::Depth, Kmem_alloc::q_allocator(Ram_quota::root));
 
-  if (pte.is_valid()) {
-    printf("Inserted page 0x%08lx at level %d, valid=%d\n", (Mword)address, pte.level, pte.is_valid());
+  if (pte.e->is_valid()) {
+    printf("Inserted page 0x%08lx at level %d, valid=%d\n", (Mword)address, pte.e->level, pte.e->is_valid());
     printf("page at 0x%08lx already mapped\n", (Mword)address);
     assert(false);
   }
 
-  Page::Rights r = Page::Rights::RWX();
+  Page::Attribs r = Page::CACHEABLE;
   if (mode & User)
-    r |= Page::Rights::U();
+    r = Page::USER_RWX;
+  else
+    r = Page::KERN_RWX;
 
-  pte.create_page(Phys_mem_addr(page), Page::Attr(r, Page::Type::Normal(), Page::Kern::Global()));
-  pte.write_back_if(true);
+  pte.e->create_page(Phys_addr(page), r);
   // flush tlb and I/D cache
   Mem_unit::tlb_flush((Address)address);
 

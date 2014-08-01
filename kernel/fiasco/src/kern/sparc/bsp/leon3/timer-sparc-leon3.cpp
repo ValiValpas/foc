@@ -81,7 +81,7 @@ Mword   Timer::_num_timers = 0;
 
 IMPLEMENT inline NEEDS ["boot_info.h", "io.h", "kip.h", "config.h", <cstdio>]
 void
-Timer::init(Cpu_number)
+Timer::init(unsigned)
 {
   _timer_base = Boot_info::timer_base();
 

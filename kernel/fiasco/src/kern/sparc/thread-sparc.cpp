@@ -113,7 +113,7 @@ bool Thread::handle_sigma0_page_fault(Address pfa)
 {
   bool ret = (mem_space()->v_insert(Mem_space::Phys_addr(pfa & Config::SUPERPAGE_MASK),
 				    Virt_addr(pfa & Config::SUPERPAGE_MASK),
-				    Virt_order(Config::SUPERPAGE_SIZE),
+				    Mem_space::Vsize(Config::SUPERPAGE_SIZE),
 				    Mem_space::Page_writable |
 				    Mem_space::Page_user_accessible |
 				    Mem_space::Page_cacheable)
@@ -322,6 +322,10 @@ Thread::sys_control_arch(Utcb *)
 {
   return 0;
 }
+
+IMPLEMENT inline
+void Thread::user_single_step(bool)
+{}
 
 //-----------------------------------------------------------------------------
 IMPLEMENTATION [!mp]:
