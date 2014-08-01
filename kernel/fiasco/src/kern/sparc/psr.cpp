@@ -14,7 +14,7 @@ public:
 	  Icc_carry      = 20, // Integer cond. code: carry
 	  Enable_copr    = 13, // Enable Coprocessor
 	  Enable_fpu     = 12, // Enable FPU
-	  Interrupt_lvl  =  8, // Interrupt level (above which we accept interrupts)
+	  Interrupt_lvl  =  8, // Interrupt level shift
 	  Superuser      =  7, // Kernel mode
 	  Prev_superuser =  6, // Kernel mode state at most recent trap
 	  Enable_trap    =  5, // Traps on/off
@@ -25,6 +25,8 @@ public:
 	  Version_mask = 0xF,
 	  Irq_lvl_mask = 0xF,
 	  Cwp_mask     = 0x1F,
+    Icc_mask     = 0xF,
+    Usr_ret_mask = (1 << Superuser) | (Icc_mask << Icc_carry),
   };
 };
 
@@ -49,4 +51,13 @@ Psr::write(unsigned psr)
   asm volatile("mov %0, %%psr\n\t"
                "nop;nop;nop;"
 	       : : "r"(psr));
+}
+
+PUBLIC static inline
+void
+Psr::enable_traps()
+{
+  Mword psr = read();
+  psr |= 1 << Enable_trap;
+  write(psr);
 }

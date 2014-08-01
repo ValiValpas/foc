@@ -30,8 +30,8 @@ IMPLEMENTATION [sparc]:
 #include "paging.h"
 #include "panic.h"
 
-char kernel_page_directory[sizeof(Pdir)];
-Pdir *Kmem::_kdir = (Pdir *)&kernel_page_directory;
+extern Mword kernel_srmmu_l1[256];
+Pdir *Kmem::_kdir = (Pdir *)&kernel_srmmu_l1;
 Mword *Kmem::_sp = 0;
 
 IMPLEMENT inline
@@ -42,13 +42,13 @@ IMPLEMENT inline
 Pdir *Kmem::dir()
 { return _kdir; }
 
-IMPLEMENT inline
-Mword *Kmem::kernel_sp()
-{ return _sp;}
-
-IMPLEMENT inline
-void Kmem::kernel_sp(Mword *sp)
-{ _sp = sp; }
+//IMPLEMENT inline
+//Mword *Kmem::kernel_sp()
+//{ return _sp;}
+//
+//IMPLEMENT inline
+//void Kmem::kernel_sp(Mword *sp)
+//{ _sp = sp; }
 
 PUBLIC static inline NEEDS["mem_layout.h", "panic.h"]
 Address Kmem::ipc_window(unsigned /*win*/)
@@ -85,4 +85,15 @@ IMPLEMENT inline
 Mword Kmem::is_io_bitmap_page_fault( Mword /*pfa*/ )
 {
   return 0;
+}
+
+PUBLIC static inline
+Address Kmem::kernel_image_start()
+{ return virt_to_phys(&Mem_layout::image_start) & Config::PAGE_MASK; }
+  
+PUBLIC static inline
+Address Kmem::kcode_end()
+{
+    return (virt_to_phys(&Mem_layout::end) + Config::PAGE_SIZE)
+               & Config::PAGE_MASK;
 }

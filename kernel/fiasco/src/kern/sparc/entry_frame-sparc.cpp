@@ -1,26 +1,54 @@
 INTERFACE[sparc]:
 
 #include "types.h"
+#include "warn.h"
 
 EXTENSION class Syscall_frame
 {
   public:
-    Mword r[30]; //{r0, r2, r3, ..., r10, r13 .., r31, ip
+    Mword i0; // tag
+    Mword i1; // dest
+    Mword i2; // timeout
+    Mword i3; // label
+    Mword i4;
+    Mword i5;
+    Mword i6;
+    Mword i7;
     void dump() const;
+};
+
+class Stack_frame
+{
+  // as in kern/sparc/crt0.S
+  public:
+    Mword l0;   //0
+    Mword l1;   //+4
+    Mword l2;   //+8
+    Mword l3;   //+12
+    Mword l4;   //+16
+    Mword l5;   //+20
+    Mword l6;   //+24
+    Mword l7;   //+28
+    Mword i0;   //+32
+    Mword i1;   //+36
+    Mword i2;   //+40
+    Mword i3;   //+44
+    Mword i4;   //+48
+    Mword i5;   //+52
+    Mword i6;   //+56
+    Mword i7;   //+60
+    Mword reserved[8]; //+64 to +92
 };
 
 EXTENSION class Return_frame
 {
+  // as in kern/sparc/crt0.S
   public:
-    Mword xer;  //+32
-    Mword ctr;  //+28
-    Mword cr;   //+24
-    Mword srr1; //+20
-    Mword srr0; //+16
-    Mword ulr;  //+12
-    Mword usp;  //+8
-    Mword r11;  //+4 --two scratch registers for exception entry
-    Mword r12;  //0
+    Mword usp;
+    Mword pc;
+    Mword psr;
+    Mword Reserved; // for dword alignment
+    Mword user_stack[Config::Stack_frame_size/sizeof(Mword)][Config::Num_register_windows-1];
     void dump();
     void dump_scratch();
     bool user_mode();
@@ -36,41 +64,47 @@ IMPLEMENT
 void
 Syscall_frame::dump() const
 {
-  printf("IP: %08lx\n", r[29]);
-  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
-          0, r[0], 2, r[1], 3, r[2], 4, r[3], 5, r[4]);
-  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
-          6, r[5], 7, r[6], 8, r[7], 9, r[8], 10, r[9]);
+  printf("Sparc syscall_frame is empty.\n");
+//  printf("IP: %08lx\n", r[29]);
+//  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
+//          0, r[0], 2, r[1], 3, r[2], 4, r[3], 5, r[4]);
+//  printf("R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx R[%2d]: %08lx\n",
+//          6, r[5], 7, r[6], 8, r[7], 9, r[8], 10, r[9]);
 }
 
-PRIVATE
-void
-Return_frame::srr1_bit_scan()
-{
-  printf("SRR1 bits:");
-  for(int i = 31; i >= 0; i--)
-    if(srr1 & (1 << i))
-     printf(" %d", 31-i);
-  printf("\n");
-}
+//PRIVATE
+//void
+//Return_frame::psr_bit_scan()
+//{
+//  printf("SRR1 bits:");
+//  for(int i = 31; i >= 0; i--)
+//    if(srr1 & (1 << i))
+//     printf(" %d", 31-i);
+//  printf("\n");
+//}
 
 IMPLEMENT
 void
 Return_frame::dump()
 {
-  printf("SRR0 %08lx SRR1 %08lx SP %08lx\n"
-         "LR   %08lx CTR  %08lx CR %08lx XER %08lx\n",
-         srr0, srr1, usp, ulr, ctr, cr, xer);
-  srr1_bit_scan();
+//  printf("L0: %08lx L1: %08lx L2: %08lx\n"
+//         "L3: %08lx L4: %08lx L5: %08lx\n"
+//         "L6: %08lx L7: %08lx\n"
+//         "I0: %08lx I1: %08lx I2: %08lx\n"
+//         "I3: %08lx I4: %08lx I5: %08lx\n"
+//         "I6: %08lx I7: %08lx\n",
+//         l0, l1, l2, l3, l4, l5, l6, l7,
+//         i0, i1, i2, i3, i4, i5, i6, i7);
+//  psr_bit_scan();
 }
-
-IMPLEMENT
-void
-Return_frame::dump_scratch()
-{
-  printf("\nR[%2d]: %08lx\nR[%2d]: %08lx\n", 11, r11, 12, r12);
-}
-
+//
+//IMPLEMENT
+//void
+//Return_frame::dump_scratch()
+//{
+//  printf("\nR[%2d]: %08lx\nR[%2d]: %08lx\n", 11, r11, 12, r12);
+//}
+//
 IMPLEMENT inline
 Mword
 Return_frame::sp() const
@@ -89,23 +123,23 @@ IMPLEMENT inline
 Mword
 Return_frame::ip() const
 {
-  return Return_frame::srr0;
+  return Return_frame::pc;
 }
 
 IMPLEMENT inline
 void
 Return_frame::ip(Mword _pc)
 {
-  Return_frame::srr0 = _pc;
+  Return_frame::pc = _pc;
 }
 
-IMPLEMENT inline NEEDS ["psr.h"]
-bool
-Return_frame::user_mode()
-{
-  return 0;
-  /*return Msr::Msr_pr & srr1;*/
-}
+//IMPLEMENT inline NEEDS ["psr.h"]
+//bool
+//Return_frame::user_mode()
+//{
+//  return 0;
+//  /*return Msr::Msr_pr & srr1;*/
+//}
 
 //---------------------------------------------------------------------------
 //TODO cbass: set registers properly 
@@ -115,36 +149,56 @@ Mword Syscall_frame::next_period() const
 
 IMPLEMENT inline
 void Syscall_frame::from(Mword id)
-{ r[5] = id; /*r6*/ }
+{
+  i3 = id;
+}
 
 IMPLEMENT inline
 Mword Syscall_frame::from_spec() const
-{ return r[5]; /*r6*/ }
+{
+  return i3;
+}
 
 
 IMPLEMENT inline
 L4_obj_ref Syscall_frame::ref() const
-{ return L4_obj_ref::from_raw(r[3]); /*r4*/ }
+{
+  return L4_obj_ref::from_raw(i1);
+}
 
 IMPLEMENT inline
 void Syscall_frame::ref(L4_obj_ref const &ref)
-{ r[3] = ref.raw(); /*r4*/ }
+{
+  i1 = ref.raw();
+}
 
 IMPLEMENT inline
 L4_timeout_pair Syscall_frame::timeout() const
-{ return L4_timeout_pair(r[4]); /*r5*/ }
+{ 
+  return L4_timeout_pair(i2);
+}
+
 
 IMPLEMENT inline 
 void Syscall_frame::timeout(L4_timeout_pair const &to)
-{ r[4] = to.raw(); /*r5*/ }
+{
+  i2 = to.raw();
+}
 
 IMPLEMENT inline Utcb *Syscall_frame::utcb() const
-{ return reinterpret_cast<Utcb*>(r[1]); /*r2*/}
+{
+  NOT_IMPL_PANIC;
+//  return reinterpret_cast<Utcb*>(r[1]); /*r2*/
+}
 
 IMPLEMENT inline L4_msg_tag Syscall_frame::tag() const
-{ return L4_msg_tag(r[2]); /*r3*/ }
+{
+  return L4_msg_tag(i0);
+}
 
 IMPLEMENT inline
 void Syscall_frame::tag(L4_msg_tag const &tag)
-{ r[2] = tag.raw(); /*r3*/ }
+{
+  i0 = tag.raw();
+}
 

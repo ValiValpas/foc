@@ -1,6 +1,7 @@
 //----------------------------------------------------------------------------
 IMPLEMENTATION [sparc]:
 
+#include "mem_space.h"
 #include "mem_region.h"
 
 IMPLEMENT
@@ -24,8 +25,25 @@ Kmem_alloc::Kmem_alloc()
       printf("  [%08lx - %08lx %4ld kB]\n", f.start, f.end, f.size() >> 10);
       Kip::k()->add_mem_region(Mem_desc(f.start, f.end,
             Mem_desc::Reserved));
-      printf("    -> %08lx\n", Mem_layout::phys_to_pmem(f.start));
-      a->add_mem((void*)Mem_layout::phys_to_pmem(f.start), f.size());
-      alloc_size -= f.size();
+
+      Address pmem = Mem_layout::phys_to_pmem(f.start);
+      if (pmem != Invalid_address)
+      {
+        printf("    -> %08lx\n", Mem_layout::phys_to_pmem(f.start));
+        a->add_mem((void*)Mem_layout::phys_to_pmem(f.start), f.size());
+        alloc_size -= f.size();
+      }
+      else
+      {
+        printf("    -> invalid\n");
+      }
     }
 }
+
+PUBLIC inline NEEDS["mem_space.h"]
+Paddress
+Kmem_alloc::to_phys(void *v) const
+{
+  return Mem_space::kernel_space()->virt_to_phys((Address)v);
+}
+

@@ -3,6 +3,7 @@ IMPLEMENTATION [sparc]:
 #include "banner.h"
 #include "boot_info.h"
 #include "config.h"
+#include "cache.h"
 #include "cpu.h"
 #include "kip_init.h"
 #include "kernel_task.h"
@@ -23,6 +24,7 @@ Startup::stage1()
   Boot_info::init();
   Cpu::early_init();
   Config::init();
+  Cache::init();
 }
 
 IMPLEMENT FIASCO_INIT FIASCO_NOINLINE
@@ -33,8 +35,7 @@ Startup::stage2()
   puts("Hello from Startup::stage2");
 
   Kip_init::init();
-  Paging::init();
-  puts("Kmem_alloc::init()");
+  Mem_space::init_page_sizes();
   //init buddy allocator
   Kmem_alloc::init();
 
@@ -48,10 +49,8 @@ Startup::stage2()
 
   //idle task
   Kernel_task::init();
-#if 0
   Pic::init();
   Timer::init(0);
-#endif
   Utcb_init::init();
   puts("Startup::stage2 finished");
 }

@@ -102,7 +102,7 @@ Mem_space::initialize()
 
 PUBLIC
 Mem_space::Mem_space(Ram_quota *q, Dir_type* pdir)
-  : _quota(q), _dir(pdir)
+: _quota(q), _dir(pdir)
 {
   _kernel_space = this;
   _current.cpu(0) = this;
@@ -112,7 +112,52 @@ IMPLEMENT inline
 void
 Mem_space::make_current()
 {
-  printf("%s FIXME\n", __func__);
+  extern Mword context_table[16];
+  _current.cpu(current_cpu()) = this;
+
+  // Currently, we simply alternate between context 0 and 1, invalidating
+  // the old context entirely.
+
+  // read current context number
+  Mword cur_context = Mem_unit::context();
+  Mword new_context = 1;
+  if (cur_context != 0) {
+    new_context = 0;
+  }
+
+  // update context table entry
+  Pte_base root(&context_table[new_context], 0);
+  root.set_next_level(virt_to_phys((Address)_dir)); // TODO pre-calc phys address (cp. arm)
+  assert(virt_to_phys((Address)_dir) != Invalid_address);
+  
+  // invalidate old context
+  Mem_unit::tlb_flush_context();
+
+  // switch context
+  Mem_unit::context(new_context);
+
+  // no need to flush/invalidate the cache because it is context-aware
+
+  /* We can do better by not flushing the context and 
+   * applying an NRU replacement scheme.
+   *
+   * What we need to store:
+   *  - A bitfield which stores the validity of every context number.
+   *  - A bitfield which stores the used status of every context number.
+   *  - The context number for (within) each context object.
+   *
+   * The algorithm:
+   *  - Check if the context number is still valid and points to the right pdir.
+   *    - YES: Switch to this number, mark as used.
+   *    - NO:  Still an invalid context number available?
+   *        - YES: Store entry in context table, switch context number, mark as used.
+   *        - NO:  Unused context numbers available?
+   *            - NO:  Clear "used" bitfield. Take any context number but the current.
+   *            Invalidate the selected context.
+   *            Store new entry in context table, switch context number, mark as used.
+   *
+   * TODO implement NRU replacement for sparc contexts
+   */
 }
 
 
@@ -120,15 +165,19 @@ PROTECTED inline
 void
 Mem_space::sync_kernel()
 {
-  printf("%s FIXME\n", __func__);
+  _dir->sync(Virt_addr(Mem_layout::User_max), kernel_space()->_dir,
+             Virt_addr(Mem_layout::User_max),
+             Virt_size(-Mem_layout::User_max), Pdir::Super_level,
+             Pte_base::need_cache_write_back(this == _current.current()),
+             Kmem_alloc::q_allocator(_quota));
 }
 
 
 IMPLEMENT inline NEEDS ["kmem.h"]
 void Mem_space::switchin_context(Mem_space *from)
 {
-  (void)from;
-  printf("%s FIXME\n", __func__);
+  if (from != this)
+    make_current();
 }
 
 //XXX cbass: check;
@@ -178,28 +227,24 @@ PUBLIC static inline NEEDS["mem_unit.h"]
 void
 Mem_space::tlb_flush(bool = false)
 {
-  //Mem_unit::tlb_flush();
+  Mem_unit::tlb_flush();
 }
 
 
-/*
+
 PUBLIC inline
 bool 
-Mem_space::set_attributes(Address virt, unsigned page_attribs)
-{*/
-/*
-  Pdir::Iter i = _dir->walk(virt);
+Mem_space::set_attributes(Virt_addr virt, unsigned page_attribs)
+{
+  auto i = _dir->walk(virt);
 
-  if (!i.e->valid() || i.shift() != Config::PAGE_SHIFT)
-    return 0;
+  if (!i.is_valid())
+    return false;
 
-  i.e->del_attr(Page::MAX_ATTRIBS);
-  i.e->add_attr(page_attribs);
+  i.set_attribs(page_attribs);
+  // TODO flush tlb?
   return true;
-*/
-/*  NOT_IMPL_PANIC;
-  return false;
-}*/
+}
 
 PROTECTED inline
 void
@@ -258,13 +303,40 @@ Mem_space::Status
 Mem_space::v_insert(Phys_addr phys, Vaddr virt, Vsize size,
 		    unsigned page_attribs, bool /*upgrade_ignore_size*/)
 {
-  (void)phys; (void)virt; (void)page_attribs;
-  assert(size == Size(Config::PAGE_SIZE) 
-         || size == Size(Config::SUPERPAGE_SIZE));
-/*
-  printf("v_insert: phys %08lx virt %08lx (%s) %p\n", phys, virt, 
-         page_attribs & Page_writable?"rw":"ro", this);*/
-  return Insert_err_nomem;
+  bool const flush = _current.current() == this;
+  assert (cxx::get_lsb(Phys_addr(phys), size) == 0);
+  assert (cxx::get_lsb(Virt_addr(virt), size) == 0);
+
+  int level;
+  for (level = 0; level <= Pdir::Depth; ++level)
+    if (Page_order(Pdir::page_order_for_level(level)) <= size)
+      break;
+
+  auto i = _dir->walk(virt, level, Pte_base::need_cache_write_back(flush),
+                      Kmem_alloc::q_allocator(_quota));
+
+  if (EXPECT_FALSE(!i.is_valid() && i.level != level))
+    return Insert_err_nomem;
+
+  if (EXPECT_FALSE(i.is_valid()
+                   && (i.level != level || Phys_addr(i.page_addr()) != phys)))
+    return Insert_err_exists;
+
+  if (i.is_valid())
+    {
+      if (EXPECT_FALSE(!i.add_attribs(page_attribs)))
+        return Insert_warn_exists;
+
+      i.write_back_if(flush, 0);
+      return Insert_warn_attrib_upgrade;
+    }
+  else
+    {
+      i.create_page(phys, page_attribs);
+      i.write_back_if(flush, 0);
+
+      return Insert_ok;
+    }
 }
 
 
@@ -292,7 +364,7 @@ PUBLIC inline
 Address
 Mem_space::pmem_to_phys (Address virt) const
 {
-  return virt;
+  return virt_to_phys(virt);
 }
 
 
@@ -317,8 +389,16 @@ bool
 Mem_space::v_lookup(Vaddr virt, Phys_addr *phys = 0, Size *size = 0,
 		    unsigned *page_attribs = 0)
 {
-  (void)virt; (void)phys; (void)size; (void)page_attribs;
-  return false;
+  auto i = _dir->walk(virt);
+  if (order) *order = Page_order(i.page_order());
+
+  if (!i.is_valid())
+    return false;
+
+  if (phys) *phys = Phys_addr(i.page_addr());
+  if (page_attribs) *page_attribs = i.attribs();
+
+  return true;
 }
 
 /** Delete page-table entries, or some of the entries' attributes.  This
@@ -335,8 +415,22 @@ unsigned long
 Mem_space::v_delete(Vaddr virt, Vsize size,
 		    unsigned long page_attribs = Page_all_attribs)
 {
-  (void)virt; (void)size; (void)page_attribs;
-  unsigned ret = 0;
+  (void) size;
+  assert (cxx::get_lsb(Virt_addr(virt), size) == 0);
+  auto i = _dir->walk(virt);
+
+  if (EXPECT_FALSE (! i.is_valid()))
+    return L4_fpage::Rights(0);
+
+  L4_fpage::Rights ret = i.access_flags();
+
+  if (! (page_attribs & L4_fpage::Rights::R()))
+    i.del_rights(page_attribs);
+  else
+    i.clear();
+
+  i.write_back_if(_current.current() == this, 0);
+
   return ret;
 }
 
@@ -344,3 +438,18 @@ PUBLIC static inline
 Page_number
 Mem_space::canonize(Page_number v)
 { return v; }
+
+IMPLEMENT inline
+void
+Mem_space::v_set_access_flags(Vaddr, L4_fpage::Rights)
+{}
+
+PUBLIC static
+void
+Mem_space::init_page_sizes()
+{
+  add_page_size(Page_order(Config::PAGE_SHIFT));
+  add_page_size(Page_order(18)); // 256K
+  add_page_size(Page_order(24)); // 16MB
+  add_page_size(Page_order(32)); // 4G
+}

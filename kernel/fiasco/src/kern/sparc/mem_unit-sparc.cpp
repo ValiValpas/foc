@@ -18,6 +18,7 @@ namespace Mmu
       Flush_context = 0x13,
       Diag_dcache   = 0x14,
       Diag_icache   = 0x15,
+      Flush         = 0x18,
       Regs          = 0x19,
       Bypass        = 0x1C,
       Diagnostic    = 0x1D,
@@ -30,6 +31,15 @@ namespace Mmu
       ContextTable  = 0x100,
       ContextNumber = 0x200,
     };
+
+    enum Flush_types
+    {
+      Page     = 0x000,
+      Segment  = 0x100,
+      Region   = 0x200,
+      Context  = 0x300,
+      Entire   = 0x400,
+    };
 };
 
 class Mem_unit { };
@@ -37,25 +47,35 @@ class Mem_unit { };
 //------------------------------------------------------------------------------
 IMPLEMENTATION[sparc && !mp]:
 
-/** Flush whole TLB
- *
- * Note: The 'tlbia' instruction is not implemented in G2 cores (causes a
- * program exception). Therefore, we use 'tlbie' by iterating through EA
- * bits [15-19] (see: G2 manual)
+/**
+ * Flush entire TLB
  */
 PUBLIC static inline
 void
 Mem_unit::tlb_flush()
 {
+  Proc::write_alternative<Mmu::Flush>(0, Mmu::Flush_types::Entire);
 }
 
-/** Flush page at virtual address
+/**
+ * Flush context
+ */
+PUBLIC static inline
+void
+Mem_unit::tlb_flush_context()
+{
+  Proc::write_alternative<Mmu::Flush>(0, Mmu::Flush_types::Context);
+}
+
+/**
+ * Flush page at virtual address
  */
 PUBLIC static inline
 void 
 Mem_unit::tlb_flush(Address addr)
 {
-  (void)addr;
+  // Flush from level 1 downwards
+  Proc::write_alternative<Mmu::Flush>(0, Mmu::Flush_types::Region | (addr & 0xFFFFF000));
 }
 
 PUBLIC static inline
@@ -75,6 +95,14 @@ void
 Mem_unit::context(Mword number)
 {
   Proc::write_alternative<Mmu::Regs>(Mmu::ContextNumber, number);
+  asm volatile("nop; nop; nop; nop; nop; nop;");
+}
+
+PUBLIC static inline
+Mword
+Mem_unit::context()
+{
+  return Proc::read_alternative<Mmu::Regs>(Mmu::ContextNumber);
 }
 
 PUBLIC static inline

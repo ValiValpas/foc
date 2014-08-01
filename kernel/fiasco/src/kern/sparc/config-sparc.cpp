@@ -14,7 +14,7 @@ public:
     PAGE_SIZE  = 1 << PAGE_SHIFT,
     PAGE_MASK  = ~(PAGE_SIZE - 1),
 
-    SUPERPAGE_SHIFT = 22,
+    SUPERPAGE_SHIFT = 24,
     SUPERPAGE_SIZE  = 1 << SUPERPAGE_SHIFT,
     SUPERPAGE_MASK  = ~(SUPERPAGE_SIZE -1),
     hlt_works_ok = 1,
@@ -31,6 +31,8 @@ public:
     Scheduler_one_shot		= 0,
     Scheduler_granularity	= 1000UL,
     Default_time_slice	        = 10 * Scheduler_granularity,
+    System_clock          = CONFIG_SPARC_CPU_MHZ * 1000000, // 40 MHz
+    Timer_prescale_hz     =  1000000, // 1 MHz
   };
 
   static unsigned const default_console_uart = 3;

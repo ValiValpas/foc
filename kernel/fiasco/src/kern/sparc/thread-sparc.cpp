@@ -14,12 +14,14 @@ IMPLEMENTATION [sparc]:
 #include "trap_state.h"
 #include "types.h"
 
-enum {
-  FSR_STATUS_MASK = 0x0d,
-  FSR_TRANSL      = 0x05,
-  FSR_DOMAIN      = 0x09,
-  FSR_PERMISSION  = 0x0d,
-};
+extern Mword *ksp;
+
+//enum {
+//  FSR_STATUS_MASK = 0x0d,
+//  FSR_TRANSL      = 0x05,
+//  FSR_DOMAIN      = 0x09,
+//  FSR_PERMISSION  = 0x0d,
+//};
 
 DEFINE_PER_CPU Per_cpu<Thread::Dbg_stack> Thread::dbg_stack;
 
@@ -66,28 +68,55 @@ Thread::user_invoke()
 
   Return_frame *r = nonull_static_cast<Return_frame*>(current()->regs());
   Kip *kip = (EXPECT_FALSE(current_thread()->mem_space()->is_sigma0())) ?
-             Kip::k() : 0;
+             (Kip*)Mem_space::kernel_space()->virt_to_phys((Address)Kip::k()) : 0;
 
-  /* DEBUGGING */
-  Mword vsid = 0xF000, utcb = 0xBAAA;
+  ksp = (Mword*)current()->regs();
 
-  printf("\n[%lx]leaving kernel ip %lx sp %lx vsid %lx\n",
-         current_thread()->dbg_id(), r->ip(), r->sp(), vsid);
-         printf("kernel_sp %p kip %p utcb %08lx\n", current_thread()->regs() + 1, kip, utcb);
+
+  Proc::stack_pointer(r->sp());
+
+  // restore psr
+  Mword psr = (r->psr & Psr::Usr_ret_mask) | (1 << Psr::Enable_trap) | (Psr::read() & ~Psr::Usr_ret_mask);
+
+  // As the delay of a write operation to psr is implementation-dependent, we 
+  // do this in the syscall page because this is mapped executable in user space.
+  // The code in the syscall page is the following:
+  //  wrpsr %o7
+  //  nop
+  //  nop
+  //  nop
+  //  jmp %g1
+  //  nop
+
+  // 
+  asm volatile
+  (
+    "mov %[psr], %%o7\n"
+    "mov %[kip], %%o0 \n"
+    "mov %[ret], %%g1 \n"
+    "jmp %[sc]        \n"
+	 "nop              \n"
+    :
+    : [ret] "r" (r->ip()),
+      [psr] "r" (psr),
+      [kip] "r" (kip),
+		[sc]  "r" (Mem_layout::Syscalls)
+    :
+  );
 
   // never returns
+  panic("Hit unreachable instruction in user_invoke()\n");
 }
 
 IMPLEMENT inline NEEDS["space.h", <cstdio>, "types.h" ,"config.h"]
 bool Thread::handle_sigma0_page_fault(Address pfa)
 {
-  bool ret = (mem_space()->v_insert(Mem_space::Phys_addr(pfa & Config::PAGE_MASK),
-				    Mem_space::Addr(pfa & Config::PAGE_MASK),
-				    Mem_space::Size(Config::PAGE_SIZE),
+  bool ret = (mem_space()->v_insert(Mem_space::Phys_addr(pfa & Config::SUPERPAGE_MASK),
+				    Virt_addr(pfa & Config::SUPERPAGE_MASK),
+				    Virt_order(Config::SUPERPAGE_SIZE),
 				    Mem_space::Page_writable |
 				    Mem_space::Page_user_accessible |
-				    Mem_space::Page_cacheable
-				   )
+				    Mem_space::Page_cacheable)
 	!= Mem_space::Insert_err_nomem);
 
   return ret;
@@ -103,28 +132,38 @@ extern "C" {
 extern "C" {
 
   /**
-   * The low-level page fault handler called from entry.S.  We're invoked with
-   * interrupts turned off.  Apart from turning on interrupts 
-   * all casesi,  just forwards
-   * the call to Thread::handle_page_fault().
+   * The low-level page fault handler called from crt0.S.  We're invoked with
+   * traps turned on.
    * @param pfa page-fault virtual address
-   * @param error_code CPU error code
+   * @param error_code MMU fault register
    * @return true if page fault could be resolved, false otherwise
    */
-  Mword pagefault_entry(const Mword pfa, const Mword error_code,
+  Mword pagefault_entry(const Mword pfa, Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
-    //printf("Page fault at %08lx (%s)\n", pfa, PF::is_read_error(error_code)?"ro":"rw" );
+    error_code &= ~Fsr::Reserved_mask;
+    if (((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0) {
+      error_code |= 1 << Fsr::User_mode;
+    }
+
     if(EXPECT_TRUE(PF::is_usermode_error(error_code)))
       {
-	if (current_thread()->vcpu_pagefault(pfa, error_code, pc))
-	  return 1;
+        assert(((Psr::read() >> Psr::Prev_superuser) & 0x1) == 0);
+        if (current_thread()->vcpu_pagefault(pfa, error_code, pc))
+          return 1;
 
-	current_thread()->state_del(Thread_cancel);
-	Proc::sti();
+        current_thread()->state_del(Thread_cancel);
+        // DON'T enable interrupts here because we currently don't support nested traps
+//        Proc::sti();
       }
 
+
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
+    if (!ret)
+    {
+		printf("pfa=0x%08lx pc=0x%08lx\n", pfa, pc);
+      panic("Couldn't resolve page fault!\n");
+    }
 
     return ret;
   }
@@ -144,19 +183,6 @@ Thread::pagein_tcb_request(Return_frame * /*regs*/)
   return false;
 }
 
-extern "C"
-{
-  void timer_handler()
-  {
-    Return_frame *rf = nonull_static_cast<Return_frame*>(current()->regs());
-    //disable power savings mode, when we come from privileged mode
-    if(EXPECT_FALSE(rf->user_mode()))
-      rf->srr1 = Proc::wake(rf->srr1);
-
-    Timer::update_system_clock(current_cpu());
-    current_thread()->handle_timer_interrupt();
-  }
-}
 //---------------------------------------------------------------------------
 IMPLEMENTATION [sparc]:
 
@@ -185,6 +211,12 @@ Thread::Thread()
   _recover_jmpbuf = 0;
   _timeout = 0;
 
+  // reserve an initial stack frame 
+  _kernel_sp = (Mword*)((Mword)_kernel_sp - Config::Stack_frame_size);
+  // preserve stack alignment
+  --_kernel_sp;
+  // set the initial restart address of the thread
+  // (stored at $sp-2words, cp. switch_cpu())
   *reinterpret_cast<void(**)()> (--_kernel_sp) = user_invoke;
 
   // clear out user regs that can be returned from the thread_ex_regs
@@ -192,6 +224,7 @@ Thread::Thread()
   Entry_frame *r = regs();
   r->sp(0);
   r->ip(0);
+  r->psr = 0;
 
   state_add_dirty(Thread_dead, false);
   // ok, we're ready to go!

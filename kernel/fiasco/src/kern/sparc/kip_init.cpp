@@ -14,6 +14,7 @@ IMPLEMENTATION [sparc]:
 
 #include "mem_layout.h"
 #include "config.h"
+#include "kmem.h"
 
 // Make the stuff below apearing only in this compilation unit.
 // Trick Preprocess to let the struct reside in the cc file rather
@@ -65,7 +66,7 @@ void Kip_init::init()
   Kip::init_global_kip(kinfo);
 
   /* add kernel image */
-  kinfo->add_mem_region(Mem_desc(0,(Address)&Mem_layout::end - 1,
+  kinfo->add_mem_region(Mem_desc(Kmem::kernel_image_start(), Kmem::kcode_end() - 1,
                         Mem_desc::Reserved));
 
   kinfo->add_mem_region(Mem_desc(0, Mem_layout::User_max - 1, 
