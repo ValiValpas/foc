@@ -1,37 +1,46 @@
-IMPLEMENTATION [sparc]:
-
-#include <panic.h>
+IMPLEMENTATION [sparc && leon3]:
 
 inline
 bool
 cas_unsafe( Mword *ptr, Mword oldval, Mword newval )
 {
-  (void)ptr; (void)newval;
-  Mword ret = 0;
+  // for leon3 we can use the casa instruction
+  asm volatile ( "cas [%[ptr]], %[oldval], %[newval]"
+                : [newval] "+r" (newval)
+                : [ptr] "r" (ptr), [oldval] "r" (oldval)
+                : "memory");
 
-#if 0
-  asm volatile ( "1:                            \n"
-		 "  lwarx  %%r6, 0, %[ptr]      \n"
-		 "  cmpw   %[oldval], %%r6      \n"
-		 "  bne-   2f                   \n"
-		 "  stwcx. %[newval], 0,%[ptr]  \n"
-		 "  bne-   1b                   \n"
-		 "2:                            \n"
-		 "  mr     %[ret], %%r6         \n"
-		 : [ret] "=r"(ret),
-		   [ptr] "=r"(ptr),
-		   [oldval] "=r"(oldval),
-		   [newval] "=r"(newval)
-		 : "0" (ret),
-		   "1" (ptr),
-		   "2" (oldval),
-		   "3" (newval)
-		 : "memory", "r6"
-		);
-#endif
-
-  return ret == oldval;
+  return (oldval == newval);
 }
+
+//----------------------------------------------------------------------
+IMPLEMENTATION [sparc && !leon3]:
+#include "cpu_lock.h"
+#include "lock_guard.h"
+
+inline NEEDS["cpu_lock.h", "lock_guard.h"]
+bool
+cas_unsafe( Mword *ptr, Mword oldval, Mword newval )
+{
+  // there is no compare-and-swap on sparcV8, i.e.
+  // we need to lock the cpu for the non-mp cas
+
+  auto guard = lock_guard(cpu_lock);
+  if (*ptr == oldval) {
+    asm volatile ("swap %0, %1"
+                  : /* no output */
+                  : "m" (*ptr), "r" (newval)
+                  : "memory");
+    return true;
+  }
+
+  return false;
+}
+
+//----------------------------------------------------------------------
+IMPLEMENTATION [sparc]:
+#include <panic.h>
+#include <stdio.h>
 
 /* dummy implement */
 bool
@@ -57,4 +66,16 @@ atomic_or (Mword *l, Mword bits)
   Mword old;
   do { old = *l; }
   while ( !cas (l, old, old | bits));
+}
+
+IMPLEMENTATION [(sparc && mp)]:
+
+inline
+bool
+mp_cas_arch(Mword *, Mword, Mword)
+{
+  // FIXME implement sparc mp_cas_arch()
+  // i.e. emulate compare-and-swap with spinlocks
+  panic("%s not implemented", __func__);
+  return false;
 }
