@@ -16,6 +16,8 @@ void __attribute__ ((noreturn))
 platform_reset(void)
 {
 
+  // FIXME this needs adaptation
+  NOT_IMPL_PANIC;
   Address mbar = Boot_info::mbar();
   Io::write<Unsigned32>(0, mbar + Gp0_mode);
   Io::write<Unsigned32>(0xff, mbar + Gp0_count); //timeout

@@ -1,6 +1,7 @@
 #include "types.h"
 #include "psr.h"
 #include "processor.h"
+#include "warn.h"
 
 IMPLEMENTATION [sparc]:
 
@@ -10,6 +11,12 @@ public:
   //disable power savings mode
  static Mword wake(Mword);
  static unsigned cpu_id();
+ static Mword frame_pointer();
+ static void  frame_pointer(Mword);
+ static Mword return_address();
+ static void  return_address(Mword);
+ static Mword wim();
+ static void  flush_regwins();
 };
 
 /// Unblock external interrupts
@@ -34,14 +41,20 @@ void Proc::cli()
 IMPLEMENT static inline
 Proc::Status Proc::interrupts()
 {
-  return Psr::read() & (0xF << Psr::Interrupt_lvl);
+  unsigned mask = 0xF << Psr::Interrupt_lvl;
+  unsigned psr = Psr::read();
+  if (!(psr & 1 << Psr::Enable_trap))
+    return false;
+  
+  // only return false if all interrupts are disabled
+  return (Psr::read() & mask) != mask;
 }
 
 /// Block external interrupts and save the old state
 IMPLEMENT static inline
 Proc::Status Proc::cli_save()
 {
-  Status ret = Psr::read();
+  Status ret = Psr::read() & (0xF << Psr::Interrupt_lvl);
   Proc::cli();
   return ret;
 }
@@ -50,21 +63,19 @@ Proc::Status Proc::cli_save()
 IMPLEMENT static inline
 void Proc::sti_restore(Status status)
 {
-  (void)status;
   Psr::write(status);
 }
 
 IMPLEMENT static inline
 void Proc::pause()
 {
-  // XXX
 }
 
 IMPLEMENT static inline
 void Proc::halt()
 {
-  // XXX
-  asm volatile ("ta 0\n");
+  // this should enable some kind of power saving on the LEON3 (not tested)
+  asm volatile ("wr %g0, %asr19");
 }
 
 IMPLEMENT static inline
@@ -94,6 +105,44 @@ Mword Proc::stack_pointer()
   Mword sp = 0;
   asm volatile ("mov %%sp, %0\n" : "=r" (sp));
   return sp;
+}
+
+IMPLEMENT static inline
+void Proc::return_address(Mword i7)
+{
+  (void)i7;
+  asm volatile ("mov %0, %%i7\n" : : "r"(i7));
+}
+
+IMPLEMENT static inline
+Mword Proc::return_address()
+{
+  Mword i7 = 0;
+  asm volatile ("mov %%i7, %0\n" : "=r" (i7));
+  return i7;
+}
+
+IMPLEMENT static inline
+Mword Proc::frame_pointer()
+{
+  Mword fp = 0;
+  asm volatile ("mov %%fp, %0\n" : "=r" (fp));
+  return fp;
+}
+
+IMPLEMENT static inline
+void Proc::frame_pointer(Mword fp)
+{
+  (void)fp;
+  asm volatile ("mov %0, %%fp\n" : : "r"(fp));
+}
+
+IMPLEMENT static inline
+Mword Proc::wim()
+{
+  Mword wim = 0;
+  asm volatile ("mov %%wim, %0\n" : "=r" (wim));
+  return wim;
 }
 
 IMPLEMENT static inline
@@ -131,6 +180,17 @@ void Proc::write_alternative(Mword reg, Mword value)
 				    "i"(ASI));
 }
 
+IMPLEMENT static inline
+void Proc::flush_regwins()
+{
+  const unsigned depth = Config::Num_register_windows - 1;
+
+  for (unsigned i = 0; i < depth; i++)
+    asm volatile("save");
+
+  for (unsigned i = 0; i < depth; i++)
+    asm volatile("restore");
+}
 
 IMPLEMENTATION [sparc && !mpcore]:
 
