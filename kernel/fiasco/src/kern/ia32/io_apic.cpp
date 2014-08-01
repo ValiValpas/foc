@@ -4,7 +4,7 @@ INTERFACE:
 #include "initcalls.h"
 #include <spin_lock.h>
 #include "irq_chip_ia32.h"
-#include <bitfield>
+#include <cxx/bitfield>
 
 class Acpi_madt;
 

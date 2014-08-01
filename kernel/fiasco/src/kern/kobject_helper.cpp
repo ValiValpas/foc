@@ -2,7 +2,7 @@ INTERFACE:
 
 #include "kobject.h"
 #include "thread.h"
-#include <type_traits>
+#include <cxx/type_traits>
 
 class Kobject_helper_base
 {

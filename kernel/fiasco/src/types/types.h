@@ -7,7 +7,8 @@
 
 #ifdef __cplusplus
 
-#include <type_traits>
+#include <cxx/cxx_int>
+#include <cxx/type_traits>
 #include <new>
 
 template< typename a, typename b > inline

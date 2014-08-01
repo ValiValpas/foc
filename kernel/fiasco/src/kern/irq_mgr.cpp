@@ -2,7 +2,7 @@ INTERFACE:
 
 #include "types.h"
 #include "irq_chip.h"
-#include <type_traits>
+#include <cxx/type_traits>
 
 /**
  * Interface used to manage harware IRQs on a platform.

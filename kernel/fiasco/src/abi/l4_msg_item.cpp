@@ -2,7 +2,7 @@ INTERFACE:
 
 #include "types.h"
 #include "l4_fpage.h"
-#include <bitfield>
+#include <cxx/bitfield>
 
 /**
  * The first word of a message item, either a send item or a receive buffer.

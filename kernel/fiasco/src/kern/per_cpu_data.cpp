@@ -20,7 +20,7 @@ INTERFACE:
 #include "static_init.h"
 #include "config.h"
 #include "context_base.h"
-#include <type_traits>
+#include <cxx/type_traits>
 
 #define DEFINE_PER_CPU_P(p) \
   DEFINE_PER_CPU_CTOR_DATA(__COUNTER__) \

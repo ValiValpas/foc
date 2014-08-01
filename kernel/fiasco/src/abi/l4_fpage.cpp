@@ -2,7 +2,7 @@ INTERFACE:
 
 #include "types.h"
 
-#include <bitfield>
+#include <cxx/bitfield>
 
 /**
  * A L4 flex page.
