@@ -30,34 +30,36 @@ Jdb::restore_irqs(unsigned cpu)
 
 IMPLEMENT inline
 void
-Jdb::enter_trap_handler(unsigned /*cpu*/)
+Jdb::enter_trap_handler(unsigned)
 {}
 
 IMPLEMENT inline
 void
-Jdb::leave_trap_handler(unsigned /*cpu*/)
+Jdb::leave_trap_handler(unsigned)
 {}
 
 IMPLEMENT inline
 bool
-Jdb::handle_conditional_breakpoint(unsigned /*cpu*/)
+Jdb::handle_conditional_breakpoint(unsigned)
 { return false; }
 
 IMPLEMENT
 void
 Jdb::handle_nested_trap(Jdb_entry_frame *e)
 {
-  printf("Trap in JDB: IP:%08lx SRR1=%08lx\n",
-         e->ip(), e->srr1);
+  printf("Trap in JDB: IP:%08lx\n",
+         e->ip());
 }
 
 IMPLEMENT
 bool
 Jdb::handle_debug_traps(unsigned cpu)
 {
-  Jdb_entry_frame *ef = entry_frame.cpu(cpu);
-  snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(0)), "%s",
-           (char const *)ef->r[2]);
+  NOT_IMPL_PANIC;
+  (void)cpu;
+//  Jdb_entry_frame *ef = entry_frame.cpu(cpu);
+//  snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(Cpu_number::first())), "%s",
+//           (char const *)ef->r[2]);
 
   return true;
 }
@@ -66,17 +68,19 @@ IMPLEMENT inline
 bool
 Jdb::handle_user_request(unsigned cpu)
 {
-  Jdb_entry_frame *ef = Jdb::entry_frame.cpu(cpu);
-  const char *str = (char const *)ef->r[2];
-  Space * task = get_task(cpu);
-  char tmp;
-
-  if (!peek(str, task, tmp) || tmp != '*')
-    return false;
-  if (!peek(str+1, task, tmp) || tmp != '#')
-    return false;
-
-  return execute_command_ni(task, str+2);
+  NOT_IMPL_PANIC;
+  (void)cpu;
+//  Jdb_entry_frame *ef = Jdb::entry_frame.cpu(cpu);
+//  const char *str = (char const *)ef->r[2];
+//  Space * task = get_task(cpu);
+//  char tmp;
+//
+//  if (!peek(str, task, tmp) || tmp != '*')
+//    return false;
+//  if (!peek(str+1, task, tmp) || tmp != '#')
+//    return false;
+//
+//  return execute_command_ni(task, str+2);
 }
 
 IMPLEMENT inline
@@ -144,6 +148,7 @@ PUBLIC static
 Space *
 Jdb::translate_task(Address addr, Space * task)
 {
+  (void)addr;
 //  return (Kmem::is_kmem_page_fault(addr, 0)) ? 0 : task;
 
   return task;
@@ -190,6 +195,7 @@ PUBLIC static
 int
 Jdb::poke_task(Address virt, Space * task, void const *val, int width)
 {
+  (void)virt; (void)task; (void)val; (void)width;
   /*
   void *mem = access_mem_task(virt, task);
   if (!mem)

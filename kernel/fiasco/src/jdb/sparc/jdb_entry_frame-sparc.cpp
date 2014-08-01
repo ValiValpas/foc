@@ -79,42 +79,75 @@ Address Jdb_entry_frame::ksp() const
 
 IMPLEMENT inline
 Address Jdb_entry_frame::ip() const
-{ return srr0; }
+{
+  // FIXME adapt to sparc
+  NOT_IMPL_PANIC;
+  return Invalid_address;
+//  return srr0;
+}
 
 PUBLIC inline
 Mword
 Jdb_entry_frame::param() const
-{ return r[2]; /*r3*/ }
+{
+  NOT_IMPL_PANIC;
+  return 0;
+//  return r[2]; /*r3*/
+}
 
 
 PUBLIC inline
 Unsigned8*
 Jdb_log_frame::str() const
-{ return (Unsigned8*)r[3]; /*r4*/ }
+{
+  NOT_IMPL_PANIC;
+  return 0;
+//  return (Unsigned8*)r[3]; /*r4*/
+}
 
 PUBLIC inline NEEDS["tb_entry.h"]
 void
 Jdb_log_frame::set_tb_entry(Tb_entry* tb_entry)
-{ r[2] = (Mword)tb_entry; }
+{
+  NOT_IMPL_PANIC;
+  (void)tb_entry;
+//  r[2] = (Mword)tb_entry;
+}
 
 //---------------------------------------------------------------------------
 PUBLIC inline
 Mword
 Jdb_log_3val_frame::val1() const
-{ return r[4]; }
+{
+  NOT_IMPL_PANIC;
+  return 0;
+//  return r[4];
+}
 
 PUBLIC inline
 Mword
 Jdb_log_3val_frame::val2() const
-{ return r[5]; }
+{
+  NOT_IMPL_PANIC;
+  return 0;
+//  return r[5];
+}
 
 PUBLIC inline
 Mword
 Jdb_log_3val_frame::val3() const
-{ return r[6]; }
+{
+  NOT_IMPL_PANIC;
+  return 0;
+//  return r[6];
+}
 
 //---------------------------------------------------------------------------
 PUBLIC inline
 void
 Jdb_status_page_frame::set(Address status_page)
-{ r[2] = (Mword)status_page; }
+{
+  NOT_IMPL_PANIC;
+  (void)status_page;
+//  r[2] = (Mword)status_page;
+}
