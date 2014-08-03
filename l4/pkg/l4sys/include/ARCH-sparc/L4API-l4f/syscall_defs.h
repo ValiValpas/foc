@@ -19,8 +19,8 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-#ifndef __L4SYS__ARCH_ARM__L4API_L4F__SYSCALL_DEFS_H__
-#define __L4SYS__ARCH_ARM__L4API_L4F__SYSCALL_DEFS_H__
+#ifndef __L4SYS__ARCH_SPARC__L4API_L4F__SYSCALL_DEFS_H__
+#define __L4SYS__ARCH_SPARC__L4API_L4F__SYSCALL_DEFS_H__
 
 #ifndef L4_SYSCALL_MAGIC_OFFSET
 #  define L4_SYSCALL_MAGIC_OFFSET	8
@@ -29,4 +29,4 @@
 #define L4_SYSCALL_MEM_OP               (-0x00000008-L4_SYSCALL_MAGIC_OFFSET)
 #define L4_SYSCALL_DEBUGGER		(-0x0000000C-L4_SYSCALL_MAGIC_OFFSET)
 
-#endif /* __L4SYS__ARCH_ARM__L4API_L4F__SYSCALL_DEFS_H__ */
+#endif /* __L4SYS__ARCH_SPARC__L4API_L4F__SYSCALL_DEFS_H__ */

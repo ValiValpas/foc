@@ -77,8 +77,9 @@ typedef struct l4_exc_regs_t
 #ifdef __GNUC__
 L4_INLINE l4_utcb_t *l4_utcb_direct(void) L4_NOTHROW
 {
-  l4_utcb_t *utcb = 0;
-
+  register l4_utcb_t *utcb asm ("o0");
+  asm volatile ("ta 0x20\n"
+                : "=r"(utcb));
   return utcb;
 }
 #endif
@@ -101,6 +102,7 @@ L4_INLINE l4_umword_t l4_utcb_exc_typeval(l4_exc_regs_t *u) L4_NOTHROW
 L4_INLINE int l4_utcb_exc_is_pf(l4_exc_regs_t *u) L4_NOTHROW
 {
   (void)u;
+  asm volatile ("ta 0x0815\n");
   return 0;
 }
 

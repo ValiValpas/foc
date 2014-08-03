@@ -42,9 +42,19 @@ include $(L4DIR)/mk/lib.mk
 
 $(eval $(call BID_MAKE_RULE_template, crti_s.o, crti.S,AS))
 
+ifeq ($(ARCH),sparc)
+# On sparc, ld strangely relocates the .init and .fini from crti_s.o sections into the .text section
+# of crti.o. Don't know how to prevent this.
+# The downside of this "fix" is that the kip_addr won't be added to the elf hdr and therefore must
+# be hard coded.
+crti.o: crti_s.o kip_addr.o
+	@$(GEN_MESSAGE)
+	$(VERBOSE)cp crti_s.o $@
+else
 crti.o: crti_s.o kip_addr.o
 	@$(GEN_MESSAGE)
 	$(VERBOSE)$(LD) -r -o $@ $^
+endif
 
 %.ld: $(PKGDIR)/ARCH-$(ARCH)/%.ld $(SRC_DIR)/Makefile $(SRC_DIR)/generic.h
 	@$(GEN_MESSAGE)

@@ -35,13 +35,7 @@ l4_ipc_call(l4_cap_idx_t dest, l4_utcb_t *utcb,
             l4_msgtag_t tag,
             l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)dest;
-	(void)utcb;
-	(void)tag;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  return l4_ipc(dest, utcb, L4_SYSF_CALL, 0, tag, 0, timeout);
 }
 
 L4_INLINE l4_msgtag_t
@@ -49,13 +43,7 @@ l4_ipc_reply_and_wait(l4_utcb_t *utcb, l4_msgtag_t tag,
                       l4_umword_t *label,
                       l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)utcb;
-	(void)tag;
-	(void)label;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  return l4_ipc(L4_INVALID_CAP, utcb, L4_SYSF_REPLY_AND_WAIT, 0, tag, label, timeout);
 }
 
 
@@ -65,14 +53,7 @@ l4_ipc_send_and_wait(l4_cap_idx_t dest, l4_utcb_t *utcb,
                      l4_umword_t *src,
                      l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)dest;
-	(void)utcb;
-	(void)tag;
-	(void)src;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  return l4_ipc(dest, utcb, L4_SYSF_SEND_AND_WAIT, 0, tag, src, timeout);
 }
 
 L4_INLINE l4_msgtag_t
@@ -80,40 +61,27 @@ l4_ipc_send(l4_cap_idx_t dest, l4_utcb_t *utcb,
             l4_msgtag_t tag,
             l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)dest;
-	(void)utcb;
-	(void)tag;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  return l4_ipc(dest, utcb, L4_SYSF_SEND, 0, tag, 0, timeout);
 }
 
 L4_INLINE l4_msgtag_t
 l4_ipc_wait(l4_utcb_t *utcb, l4_umword_t *src,
             l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)utcb;
-	(void)src;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  l4_msgtag_t t;
+  t.raw = 0;
+  return l4_ipc(L4_INVALID_CAP, utcb, L4_SYSF_WAIT, 0, t, src, timeout);
 }
 
 L4_INLINE l4_msgtag_t
 l4_ipc_receive(l4_cap_idx_t src, l4_utcb_t *utcb,
                l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)utcb;
-	(void)src;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  l4_msgtag_t t;
+  t.raw = 0;
+  return l4_ipc(src, utcb, L4_SYSF_RECV, 0, t, 0, timeout);
 }
 
-// todo: let all calls above use this single call
 L4_INLINE l4_msgtag_t
 l4_ipc(l4_cap_idx_t dest, l4_utcb_t *utcb,
        l4_umword_t flags,
@@ -122,16 +90,34 @@ l4_ipc(l4_cap_idx_t dest, l4_utcb_t *utcb,
        l4_umword_t *rlabel,
        l4_timeout_t timeout) L4_NOTHROW
 {
-	(void)dest;
-	(void)utcb;
-	(void)flags;
-	(void)slabel;
-	(void)tag;
-	(void)rlabel;
-	(void)timeout;
-	l4_msgtag_t t;
-	t.raw = ~0;
-	return t;
+  register l4_umword_t _dest     __asm__("o1") = dest | flags;
+  register l4_umword_t _timeout  __asm__("o2") = timeout.raw;
+  register l4_msgtag_t _tag      __asm__("o0") = tag;
+  register l4_umword_t _label    __asm__("o3") = slabel;
+  (void)utcb;
+
+  __asm__ __volatile__
+    ("call %[sc] \n"
+     "nop        \n"
+     :
+     "=r" (_dest),
+     "=r" (_timeout),
+     "=r" (_label),
+     "=r" (_tag)
+     :
+     "0" (_dest),
+     "1" (_timeout),
+     "2" (_label),
+     "3" (_tag),
+     [sc] "i" (L4_SYSCALL_INVOKE)
+     :
+     "memory", "o7", "g1", "g2", "g3", "g4", "g5", "g6");
+
+  if (rlabel)
+    *rlabel = _label;
+  tag.raw = _tag.raw; // because gcc doesn't return out of registers variables
+
+  return tag;
 }
 
 

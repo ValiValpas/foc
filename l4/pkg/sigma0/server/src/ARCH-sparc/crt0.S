@@ -11,16 +11,22 @@
 .type _start,#function
 .globl _start
 _start:
-	ta 0
+  sethi %hi(crt0_stack_init), %sp
+  or    %sp, %lo(crt0_stack_init), %sp
+  ba   init
+  nop
 
 .LCstack: .word crt0_stack_high
 .LCexit:  .word _exit
 
 .section ".bss"
 
-	.align	4
+	.align	8
 	.global crt0_stack_low
 crt0_stack_low:
-	.space	2048
+	.space	1952
+	.global crt0_stack_init
+crt0_stack_init:
+  .space  96
 	.global crt0_stack_high
 crt0_stack_high:

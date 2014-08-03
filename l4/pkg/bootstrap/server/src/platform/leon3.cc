@@ -32,6 +32,7 @@ class Platform_leon3 : public Platform_base
       LEON3_VENDOR_GAISLER        = 0x1,
       LEON3_VENDOR_ESA            = 0x4,
       LEON3_DEVICEID_MCTRL        = 0xF,
+      LEON3_DEVICEID_XILMIG       = 0x6B,
 
       LEON3_AHB_BAR_MASK_SHIFT    = 4,
       LEON3_AHB_BAR_MASK_MASK     = 0xFFF,
@@ -51,6 +52,7 @@ class Platform_leon3 : public Platform_base
 
   long _ram_area_start;
   long _ram_area_size;
+  bool _mctrl_present;
 
   void init()
   {
@@ -84,11 +86,22 @@ class Platform_leon3 : public Platform_base
      *                how large it is configured to be */
     if ((vendor == (short)LEON3_VENDOR_ESA) && (dev == (short)LEON3_DEVICEID_MCTRL))
       {
+        _mctrl_present = true;
         unsigned bar2_addr = (*(ahb_idx+6) >> LEON3_AHB_BAR_ADDR_SHIFT) & LEON3_AHB_BAR_ADDR_MASK;
         unsigned bar2_mask = (*(ahb_idx+6) >> LEON3_AHB_BAR_MASK_SHIFT) & LEON3_AHB_BAR_MASK_MASK;
         _ram_area_start = bar2_addr << 20;
         _ram_area_size  = ~(bar2_mask << 20);
-        printf("RAM AREA: [%08lx - %08lx]\n",
+        printf("SDRAM AREA: [%08lx - %08lx]\n",
+               _ram_area_start, _ram_area_start + _ram_area_size);
+      }
+    else if ((vendor == (short)LEON3_VENDOR_GAISLER) && (dev == (short)LEON3_DEVICEID_XILMIG))
+      {
+        _mctrl_present = false;
+        unsigned bar2_addr = (*(ahb_idx+4) >> LEON3_AHB_BAR_ADDR_SHIFT) & LEON3_AHB_BAR_ADDR_MASK;
+        unsigned bar2_mask = (*(ahb_idx+4) >> LEON3_AHB_BAR_MASK_SHIFT) & LEON3_AHB_BAR_MASK_MASK;
+        _ram_area_start = bar2_addr << 20;
+        _ram_area_size  = ~(bar2_mask << 20);
+        printf("DDR2 AREA: [%08lx - %08lx]\n",
                _ram_area_start, _ram_area_start + _ram_area_size);
       }
     print_device(ahb_idx);
@@ -108,34 +121,45 @@ class Platform_leon3 : public Platform_base
 
   void setup_memory_map(l4util_mb_info_t *, Region_list *ram, Region_list *)
   {
-    /* § 10.8.2
-       SDRAM area is mapped into the upper half of the RAM area defined by BAR2
-       register. When the SDRAM enable bit is set in MCFG2, the controller is
-       enabled and mapped into upper half of the RAM area as long as the SRAM
-       disable bit is not set. If the SRAM disable bit is set, all access to
-       SRAM is disabled and the SDRAM banks are mapped into the lower half of
-       the RAM area.
-     */
-    unsigned mcfg2      = *(unsigned*)LEON3_MEMCFG2;
-    unsigned ram_size   = (mcfg2 >> LEON3_MEMCFG2_RAMSZ_SHIFT) & LEON3_MEMCFG2_RAMSZ_MASK;
-    unsigned sdram_size = (mcfg2 >> LEON3_MEMCFG2_SDRAMSZ_SHIFT) & LEON3_MEMCFG2_SDRAMSZ_MASK;
+    if (_mctrl_present)
+    {
+      /* § 10.8.2
+         SDRAM area is mapped into the upper half of the RAM area defined by BAR2
+         register. When the SDRAM enable bit is set in MCFG2, the controller is
+         enabled and mapped into upper half of the RAM area as long as the SRAM
+         disable bit is not set. If the SRAM disable bit is set, all access to
+         SRAM is disabled and the SDRAM banks are mapped into the lower half of
+         the RAM area.
+       */
+      unsigned mcfg2      = *(unsigned*)LEON3_MEMCFG2;
+      unsigned ram_size   = (mcfg2 >> LEON3_MEMCFG2_RAMSZ_SHIFT) & LEON3_MEMCFG2_RAMSZ_MASK;
+      unsigned sdram_size = (mcfg2 >> LEON3_MEMCFG2_SDRAMSZ_SHIFT) & LEON3_MEMCFG2_SDRAMSZ_MASK;
 
-    sdram_size = 4 << sdram_size;
+      sdram_size = 4 << sdram_size;
 
-    long sdram_base = _ram_area_start;
-    if (!(mcfg2 & LEON3_MEMCFG2_SRAM_DISABLEF))
-      sdram_base = _ram_area_start + ((_ram_area_size + 1) >> 1);
+      long sdram_base = _ram_area_start;
+
+      if (!((mcfg2 >> LEON3_MEMCFG2_SRAM_DISABLEF) & 0x1))
+        sdram_base = _ram_area_start + ((_ram_area_size + 1) >> 1);
 
 #ifdef RAM_SIZE_MB
-    sdram_size = RAM_SIZE_MB;
-    sdram_base = RAM_BASE;
+      sdram_size = RAM_SIZE_MB;
+      sdram_base = RAM_BASE;
 #endif
 
-    printf("RAM:   %4d kB\n", (8192 << ram_size) / 1024);
-    printf("SDRAM: %4d MB\n", sdram_size);
+      printf("RAM:   %4d kB\n", (8192 << ram_size) / 1024);
+      printf("SDRAM: %4d MB\n", sdram_size);
 
-    ram->add(Region::n(sdram_base, sdram_base + (sdram_size << 20), ".sdram",
-                       Region::Ram));
+      ram->add(Region::n(sdram_base, sdram_base + (sdram_size << 20), ".sdram",
+                         Region::Ram));
+    }
+    else // DDR2 present
+    {
+      unsigned ddr_size = (_ram_area_size + 1) >> 20;
+      printf("DDR2: %4d MB\n", ddr_size);
+      ram->add(Region::n(_ram_area_start, _ram_area_start + _ram_area_size + 1, ".sdram",
+                         Region::Ram));
+    }
   }
 };
 }
