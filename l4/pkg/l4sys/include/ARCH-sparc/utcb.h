@@ -38,7 +38,7 @@
  */
 enum L4_utcb_consts_sparc
 {
-  L4_UTCB_EXCEPTION_REGS_SIZE    = 39,
+  L4_UTCB_EXCEPTION_REGS_SIZE    = 13,
   L4_UTCB_GENERIC_DATA_SIZE      = 63,
   L4_UTCB_GENERIC_BUFFERS_SIZE   = 58,
 
@@ -60,11 +60,17 @@ typedef struct l4_exc_regs_t
   l4_umword_t pfa;     /**< page fault address */
   l4_umword_t err;     /**< error code */
 
-  l4_umword_t r[30];   /**< G0-7, I0-8, L0-7, O0-7 */
-  l4_umword_t sp;      /**< O6 */
-  l4_umword_t o7;
-  l4_umword_t trapno;
+  l4_umword_t i0;
+  l4_umword_t i1;
+  l4_umword_t i2;
+  l4_umword_t i3;
+  l4_umword_t i4;
+  l4_umword_t i5;
+  l4_umword_t i6;
+  l4_umword_t i7;
+  l4_umword_t sp;
   l4_umword_t ip;
+  l4_umword_t psr;
 } l4_exc_regs_t;
 
 #include_next <l4/sys/utcb.h>
@@ -96,14 +102,13 @@ L4_INLINE void l4_utcb_exc_pc_set(l4_exc_regs_t *u, l4_addr_t pc) L4_NOTHROW
 
 L4_INLINE l4_umword_t l4_utcb_exc_typeval(l4_exc_regs_t *u) L4_NOTHROW
 {
-  return u->trapno;
+  return u->err >> 20;
 }
 
 L4_INLINE int l4_utcb_exc_is_pf(l4_exc_regs_t *u) L4_NOTHROW
 {
-  (void)u;
-  asm volatile ("ta 0x0815\n");
-  return 0;
+  // return true if fault type is not zero
+  return (u->err & 0x1C) != 0;
 }
 
 L4_INLINE l4_addr_t l4_utcb_exc_pfa(l4_exc_regs_t *u) L4_NOTHROW

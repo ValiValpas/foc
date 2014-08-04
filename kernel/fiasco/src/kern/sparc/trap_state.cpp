@@ -38,26 +38,24 @@ PUBLIC inline
 unsigned long
 Trap_state::ip() const
 {
-  NOT_IMPL_PANIC;
-//  return srr0;
-  return 0;
+  return pc;
 }
 
 PUBLIC inline
 unsigned long
 Trap_state::trapno() const
-{ return error_code; }
+{ return error_code >> 20; }
 
 PUBLIC inline
 Mword
 Trap_state::error() const
-{ return 0; }
+{ return error_code; }
 
 PUBLIC inline
 void
 Trap_state::set_ipc_upcall()
 {
-  error_code = 0x10000000; // see Msr
+  error_code = 0xfe000000;
 }
 
 PUBLIC inline

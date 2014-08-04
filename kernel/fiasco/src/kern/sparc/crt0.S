@@ -777,6 +777,9 @@ sparc_data_exception:
 mmu_exception_continue:
   set 0x300, %l5  ! address of MMU fault status register
   lda [%l5] 0x19, %o1 ! load status register into 2nd argument
+  mov %tbr, %l6           ! read trap base register
+  sll %l6, 20, %l6    ! shift into MSBs of MMU fault register which are reserved
+  or %l6, %o1, %o1    ! add trap type to 2nd argument
 
   mov %t_pc, %o2        ! load faulting instruction into 3rd argument
   sethi %hi(ksp), %l6
