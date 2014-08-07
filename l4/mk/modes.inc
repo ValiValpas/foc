@@ -11,8 +11,8 @@ ifneq ($(MODE_USE_C),)
   $(error MODE_USE_C is obsolete, add l4re_c and/or l4re_c-util to REQUIRES_LIBS as needed)
 endif
 
-CRTBEGIN_so       = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbegin.o),$(GCCLIB_FILE_crtbeginS.o))
-CRTBEGIN_stat_bin = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbegin.o),$(GCCLIB_FILE_crtbeginT.o))
+CRTBEGIN_so       = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbeginS.o),$(GCCLIB_FILE_crtbeginS.o))
+CRTBEGIN_stat_bin = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbeginT.o),$(GCCLIB_FILE_crtbeginT.o))
 
 CRTBEGIN_dyn_bin  = $(GCCLIB_FILE_crtbegin.o)
 
@@ -29,7 +29,7 @@ CRTI_so           = $(call findfile,crti.s.o,$(L4LIBDIR))
 CRTI_dyn_bin      = $(call findfile,crti.o,$(L4LIBDIR))
 CRTI_stat_bin     = $(call findfile,crti.o,$(L4LIBDIR))
 
-CRTN_so           = $(if $(GCCIS_sparc_leon),,$(CRTEND_so)) $(call findfile,crtn.s.o,$(L4LIBDIR))
+CRTN_so           = $(if $(GCCIS_sparc_leon),$(CRTEND_so),$(CRTEND_so)) $(call findfile,crtn.s.o,$(L4LIBDIR))
 CRTN_dyn_bin      = $(CRTEND_dyn_bin)  $(call findfile,crtn.o,$(L4LIBDIR))
 CRTN_stat_bin     = $(CRTEND_stat_bin) $(call findfile,crtn.o,$(L4LIBDIR))
 

@@ -245,8 +245,8 @@ checkconf:
 .PHONY: Makeconf.bid.local-helper Makeconf.bid.local-internal-names \
         libgendep checkconf
 ARCH = $(BUILD_ARCH)
-CC := $(if $(filter sparc,$(ARCH)),$(if $(call GCCIS_sparc_leon_f),sparc-elf-gcc,$(CC)),$(CC))
-LD := $(if $(filter sparc,$(ARCH)),$(if $(call GCCIS_sparc_leon_f),sparc-elf-ld,$(LD)),$(LD))
+CC := $(if $(filter sparc,$(ARCH)),$(if $(call GCCIS_sparc_leon_f),$(CC),$(CC)),$(CC))
+LD := $(if $(filter sparc,$(ARCH)),$(if $(call GCCIS_sparc_leon_f),$(LD),$(LD)),$(LD))
 Makeconf.bid.local-helper:
 	$(VERBOSE)echo BUILD_SYSTEMS="$(strip $(ARCH)_$(CPU)            \
 	               $(ARCH)_$(CPU)-$(BUILD_ABI))" >> $(DROPSCONF_CONFIG_MK)
