@@ -88,6 +88,7 @@ L4_INLINE
 unsigned long
 __kdebug_param(unsigned long nr, unsigned long p1, unsigned long p2)
 {
+	// FIXME implement __kdebug_param
 	(void)nr;
 	(void)p1;
 	(void)p2;
@@ -99,6 +100,7 @@ unsigned long
 __kdebug_param_5(unsigned long nr, unsigned long p1, unsigned long p2,
                  unsigned long p3, unsigned long p4, unsigned long p5)
 {
+	// FIXME implement __kdebug_param_5
 	(void)nr;
 	(void)p1;
 	(void)p2;
