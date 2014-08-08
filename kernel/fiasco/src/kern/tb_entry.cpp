@@ -80,7 +80,7 @@ public:
 
   private:
     Group_order(unsigned char v, bool) : _o(v) {}
-    unsigned char _o;
+    unsigned char _o __attribute__((mode(SI))); // sparc workaround: force mode attribute to SI
   };
 
   Group_order has_partner() const { return Group_order::none(); }
