@@ -107,10 +107,7 @@ PUBLIC static inline
 Unsigned64
 Cpu::rdtsc()
 {
-  Unsigned32 tb_upper, tb_lower;
-  Unsigned64 tb;
-  tb = tb_upper;
-  return (tb << 32) | tb_lower;
+	return 0;
 }
 
 PUBLIC static inline
